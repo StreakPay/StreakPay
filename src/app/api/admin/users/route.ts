@@ -1,31 +1,30 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
-import { db } from "@/lib/db";
-
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
-
-  if (!db) throw new Error("Database not available");
-
-  const admin = await db.adminUser.findUnique({
-    where: { userId: session.user.id },
-  });
-
-  if (!admin || !admin.active) throw new Error("Not an admin");
-
-  return { session, admin };
-}
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
   try {
-    const { session, admin } = await requireAdmin();
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const users = await db.user.findMany({
-      include: { profile: true, streak: true },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    });
+    const { data: admin } = await supabase
+      .from("admin_users")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("active", true)
+      .single();
+
+    if (!admin) return NextResponse.json({ error: "Not an admin" }, { status: 403 });
+
+    const { data: users, error: usersError } = await supabase
+      .from("users")
+      .select("*, user_profiles(*), streaks(*)")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (usersError) throw usersError;
 
     return NextResponse.json({ users, adminRole: admin.role });
   } catch (error: any) {

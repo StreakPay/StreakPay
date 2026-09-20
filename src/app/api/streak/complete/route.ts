@@ -1,18 +1,23 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
 import { completeStreakTask, getTodayTask } from "@/services/streak";
 
 export async function POST() {
   try {
-    const session = await getSession();
-    if (!session) {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const streak = await db?.streak.findUnique({ where: { userId: session.user.id } });
-    const task = await getTodayTask(streak?.currentStreak || 0);
-    const result = await completeStreakTask(session.user.id, task.id);
+    const { data: streak } = await supabase
+      .from("streaks")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+
+    const task = await getTodayTask(streak?.current_streak || 0);
+    const result = await completeStreakTask(user.id, task.id);
 
     return NextResponse.json({ success: true, ...result });
   } catch (error: unknown) {

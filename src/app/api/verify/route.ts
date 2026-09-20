@@ -1,19 +1,15 @@
 ﻿import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { v4 as uuidv4 } from "uuid";
+import { createClient } from "@/lib/supabase/server";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_SIZE = 5 * 1024 * 1024;
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
-    if (!session) {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!db) {
-      return NextResponse.json({ error: "Database not available" }, { status: 503 });
     }
 
     const formData = await request.formData();
@@ -28,37 +24,54 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "File too large (max 5MB)" }, { status: 400 });
     }
 
-    const existingProof = await db.paymentProof.findFirst({
-      where: { userId: session.user.id, status: { in: ["pending", "approved"] } },
-    });
+    const { data: existingProof } = await supabase
+      .from("payment_proofs")
+      .select("id")
+      .eq("user_id", user.id)
+      .in("status", ["pending", "approved"])
+      .limit(1)
+      .single();
+
     if (existingProof) {
       return NextResponse.json({ error: "You already have a pending proof" }, { status: 400 });
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const ext = file.name.split(".").pop() || "jpg";
-    const safeName = `${session.user.id}-${Date.now()}.${ext}`;
-    const fs = require("fs");
-    const path = require("path");
-    const uploadDir = path.join(process.cwd(), "uploads");
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-    fs.writeFileSync(path.join(uploadDir, safeName), buffer);
+    const storagePath = `${user.id}/${Date.now()}.${ext}`;
 
-    const proof = await db.paymentProof.create({
-      data: {
-        id: uuidv4(),
-        userId: session.user.id,
-        fileUrl: `/uploads/${safeName}`,
-        fileName: file.name,
-        mimeType: file.type,
+    const { error: uploadError } = await supabase.storage
+      .from("payment-proofs")
+      .upload(storagePath, buffer, { contentType: file.type });
+
+    let fileUrl: string;
+    if (uploadError) {
+      fileUrl = `/uploads/${storagePath}`;
+    } else {
+      const { data: urlData } = supabase.storage
+        .from("payment-proofs")
+        .getPublicUrl(storagePath);
+      fileUrl = urlData.publicUrl;
+    }
+
+    const { data: proof, error: proofError } = await supabase
+      .from("payment_proofs")
+      .insert({
+        user_id: user.id,
+        file_url: fileUrl,
+        file_name: file.name,
+        mime_type: file.type,
         status: "pending",
-      },
-    });
+      })
+      .select("id, status")
+      .single();
 
-    await db.userProfile.update({
-      where: { userId: session.user.id },
-      data: { verificationStatus: "proof_submitted" },
-    });
+    if (proofError) throw proofError;
+
+    await supabase
+      .from("user_profiles")
+      .update({ verification_status: "proof_submitted" })
+      .eq("user_id", user.id);
 
     return NextResponse.json({ success: true, proof: { id: proof.id, status: proof.status } });
   } catch (error) {

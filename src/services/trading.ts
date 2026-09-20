@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
 import { v4 as uuidv4 } from "uuid";
 
 const BASE_PRICE = 1.0;
@@ -20,7 +20,7 @@ function generateCandle(
 
   return {
     id: uuidv4(),
-    timestamp,
+    timestamp: timestamp.toISOString(),
     open: Math.max(0.01, open),
     high: Math.max(0.01, high),
     low: Math.max(0.01, low),
@@ -31,63 +31,63 @@ function generateCandle(
 }
 
 export async function getCurrentPrice() {
-  if (!db) return BASE_PRICE;
+  const supabase = await createClient();
 
-  const marketState = await db.marketState.findUnique({
-    where: { symbol: "SPK" },
-  });
+  const { data: marketState } = await supabase
+    .from("market_state")
+    .select("current_price")
+    .eq("symbol", "SPK")
+    .single();
 
   if (!marketState) {
-    await db.marketState.create({
-      data: {
-        id: uuidv4(),
-        symbol: "SPK",
-        basePrice: BASE_PRICE,
-        currentPrice: BASE_PRICE,
-        volatility: VOLATILITY,
-        sentiment: 0,
-      },
+    await supabase.from("market_state").insert({
+      id: uuidv4(),
+      symbol: "SPK",
+      base_price: BASE_PRICE,
+      current_price: BASE_PRICE,
+      volatility: VOLATILITY,
+      sentiment: 0,
     });
     return BASE_PRICE;
   }
 
-  return Number(marketState.currentPrice);
+  return Number(marketState.current_price);
 }
 
 export async function generateNewCandle(timeframe: string = "1m") {
-  if (!db) return null;
+  const supabase = await createClient();
 
   const currentPrice = await getCurrentPrice();
   const now = new Date();
 
   const candle = generateCandle(currentPrice, now, timeframe);
 
-  await db.$transaction([
-    db.sPKCandle.upsert({
-      where: { timestamp_timeframe: { timestamp: now, timeframe } },
-      update: candle,
-      create: candle,
-    }),
-    db.marketState.update({
-      where: { symbol: "SPK" },
-      data: {
-        currentPrice: candle.close,
-        lastUpdated: now,
-      },
-    }),
-  ]);
+  await supabase.from("spk_candles").upsert(candle, {
+    onConflict: "timestamp,timeframe",
+  });
+
+  await supabase
+    .from("market_state")
+    .update({
+      current_price: candle.close,
+      last_updated: now.toISOString(),
+    })
+    .eq("symbol", "SPK");
 
   return candle;
 }
 
 export async function getCandles(timeframe: string = "1m", limit: number = 50) {
-  if (!db) return [];
+  const supabase = await createClient();
 
-  return db.sPKCandle.findMany({
-    where: { timeframe },
-    orderBy: { timestamp: "desc" },
-    take: limit,
-  });
+  const { data } = await supabase
+    .from("spk_candles")
+    .select("*")
+    .eq("timeframe", timeframe)
+    .order("timestamp", { ascending: false })
+    .limit(limit);
+
+  return data || [];
 }
 
 export async function placeOrder(
@@ -96,134 +96,151 @@ export async function placeOrder(
   quantity: number,
   price?: number
 ) {
-  if (!db) throw new Error("Database not available");
+  const supabase = await createClient();
 
   const currentPrice = await getCurrentPrice();
   const executionPrice = price || currentPrice;
   const totalCost = quantity * executionPrice;
 
-  return db.$transaction(async (tx: any) => {
-    const account = await tx.tradingAccount.findUnique({
-      where: { userId },
-    });
+  const { data: account, error: accountError } = await supabase
+    .from("trading_accounts")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
 
-    if (!account) throw new Error("Trading account not found");
+  if (accountError || !account) throw new Error("Trading account not found");
 
-    if (side === "buy") {
-      if (Number(account.cashBalance) < totalCost) {
-        throw new Error("Insufficient balance");
-      }
-
-      await tx.tradingAccount.update({
-        where: { id: account.id },
-        data: { cashBalance: Number(account.cashBalance) - totalCost },
-      });
-
-      const existingPosition = await tx.tradingPosition.findUnique({
-        where: { tradingAccountId_symbol: { tradingAccountId: account.id, symbol: "SPK" } },
-      });
-
-      if (existingPosition) {
-        const totalQuantity = Number(existingPosition.quantity) + quantity;
-        const avgPrice =
-          (Number(existingPosition.averagePrice) * Number(existingPosition.quantity) +
-            executionPrice * quantity) /
-          totalQuantity;
-
-        await tx.tradingPosition.update({
-          where: { id: existingPosition.id },
-          data: { quantity: totalQuantity, averagePrice: avgPrice },
-        });
-      } else {
-        await tx.tradingPosition.create({
-          data: {
-            id: uuidv4(),
-            tradingAccountId: account.id,
-            symbol: "SPK",
-            quantity,
-            averagePrice: executionPrice,
-          },
-        });
-      }
-    } else {
-      const position = await tx.tradingPosition.findUnique({
-        where: { tradingAccountId_symbol: { tradingAccountId: account.id, symbol: "SPK" } },
-      });
-
-      if (!position || Number(position.quantity) < quantity) {
-        throw new Error("Insufficient position");
-      }
-
-      const newQuantity = Number(position.quantity) - quantity;
-      const pnl = (executionPrice - Number(position.averagePrice)) * quantity;
-
-      if (newQuantity === 0) {
-        await tx.tradingPosition.delete({ where: { id: position.id } });
-      } else {
-        await tx.tradingPosition.update({
-          where: { id: position.id },
-          data: { quantity: newQuantity },
-        });
-      }
-
-      await tx.tradingAccount.update({
-        where: { id: account.id },
-        data: {
-          cashBalance: Number(account.cashBalance) + totalCost,
-          totalPnL: Number(account.totalPnL) + pnl,
-        },
-      });
+  if (side === "buy") {
+    if (Number(account.cash_balance) < totalCost) {
+      throw new Error("Insufficient balance");
     }
 
-    const order = await tx.tradingOrder.create({
-      data: {
+    await supabase
+      .from("trading_accounts")
+      .update({ cash_balance: Number(account.cash_balance) - totalCost })
+      .eq("id", account.id);
+
+    const { data: existingPosition } = await supabase
+      .from("trading_positions")
+      .select("*")
+      .eq("trading_account_id", account.id)
+      .eq("symbol", "SPK")
+      .single();
+
+    if (existingPosition) {
+      const totalQuantity = Number(existingPosition.quantity) + quantity;
+      const avgPrice =
+        (Number(existingPosition.average_price) * Number(existingPosition.quantity) +
+          executionPrice * quantity) /
+        totalQuantity;
+
+      await supabase
+        .from("trading_positions")
+        .update({ quantity: totalQuantity, average_price: avgPrice })
+        .eq("id", existingPosition.id);
+    } else {
+      await supabase.from("trading_positions").insert({
         id: uuidv4(),
-        tradingAccountId: account.id,
-        side,
+        trading_account_id: account.id,
         symbol: "SPK",
         quantity,
-        price: executionPrice,
-        status: "filled",
-        executedAt: new Date(),
-      },
-    });
+        average_price: executionPrice,
+      });
+    }
+  } else {
+    const { data: position } = await supabase
+      .from("trading_positions")
+      .select("*")
+      .eq("trading_account_id", account.id)
+      .eq("symbol", "SPK")
+      .single();
 
-    return order;
-  });
+    if (!position || Number(position.quantity) < quantity) {
+      throw new Error("Insufficient position");
+    }
+
+    const newQuantity = Number(position.quantity) - quantity;
+    const pnl = (executionPrice - Number(position.average_price)) * quantity;
+
+    if (newQuantity === 0) {
+      await supabase.from("trading_positions").delete().eq("id", position.id);
+    } else {
+      await supabase
+        .from("trading_positions")
+        .update({ quantity: newQuantity })
+        .eq("id", position.id);
+    }
+
+    await supabase
+      .from("trading_accounts")
+      .update({
+        cash_balance: Number(account.cash_balance) + totalCost,
+        total_pnl: Number(account.total_pnl) + pnl,
+      })
+      .eq("id", account.id);
+  }
+
+  const { data: order } = await supabase
+    .from("trading_orders")
+    .insert({
+      id: uuidv4(),
+      trading_account_id: account.id,
+      side,
+      symbol: "SPK",
+      quantity,
+      price: executionPrice,
+      status: "filled",
+      executed_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  return order;
 }
 
 export async function getTradingAccount(userId: string) {
-  if (!db) return null;
+  const supabase = await createClient();
 
-  const account = await db.tradingAccount.findUnique({
-    where: { userId },
-    include: {
-      positions: true,
-      orders: { orderBy: { createdAt: "desc" }, take: 20 },
-    },
-  });
+  const { data: account } = await supabase
+    .from("trading_accounts")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
 
   if (!account) return null;
 
+  const { data: positions } = await supabase
+    .from("trading_positions")
+    .select("*")
+    .eq("trading_account_id", account.id);
+
+  const { data: orders } = await supabase
+    .from("trading_orders")
+    .select("*")
+    .eq("trading_account_id", account.id)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
   const currentPrice = await getCurrentPrice();
 
-  const positions = account.positions.map((p: any) => ({
+  const enrichedPositions = (positions || []).map((p: any) => ({
     ...p,
-    currentPrice,
-    unrealizedPnL: (currentPrice - Number(p.averagePrice)) * Number(p.quantity),
+    current_price: currentPrice,
+    unrealized_pnl: (currentPrice - Number(p.average_price)) * Number(p.quantity),
   }));
 
   const portfolioValue =
-    Number(account.cashBalance) +
-    positions.reduce(
+    Number(account.cash_balance) +
+    enrichedPositions.reduce(
       (sum: number, p: any) => sum + Number(p.quantity) * currentPrice,
       0
     );
 
   return {
     ...account,
-    positions,
-    portfolioValue,
-    totalPnL: Number(account.totalPnL),
+    positions: enrichedPositions,
+    orders: orders || [],
+    portfolio_value: portfolioValue,
+    total_pnl: Number(account.total_pnl),
   };
 }

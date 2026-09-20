@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { requestWithdrawal, getWithdrawalHistory } from "@/services/admin/withdrawals";
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
-    if (!session) {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
     }
 
     const withdrawal = await requestWithdrawal(
-      session.user.id,
+      user.id,
       amount,
       bankName,
       accountNumber,
@@ -32,12 +33,13 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const session = await getSession();
-    if (!session) {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const withdrawals = await getWithdrawalHistory(session.user.id);
+    const withdrawals = await getWithdrawalHistory(user.id);
     return NextResponse.json({ withdrawals });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

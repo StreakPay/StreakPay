@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { getNotifications, getUnreadCount, markAllNotificationsRead } from "@/services/notifications";
 
 export async function GET() {
   try {
-    const session = await getSession();
-    if (!session) {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const notifications = await getNotifications(session.user.id);
-    const unreadCount = await getUnreadCount(session.user.id);
+    const notifications = await getNotifications(user.id);
+    const unreadCount = await getUnreadCount(user.id);
 
     return NextResponse.json({ notifications, unreadCount });
   } catch (error) {
@@ -21,12 +22,13 @@ export async function GET() {
 
 export async function PATCH() {
   try {
-    const session = await getSession();
-    if (!session) {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await markAllNotificationsRead(session.user.id);
+    await markAllNotificationsRead(user.id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

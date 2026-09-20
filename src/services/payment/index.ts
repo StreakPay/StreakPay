@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
 import { v4 as uuidv4 } from "uuid";
 
 interface PaymentInitiation {
@@ -43,8 +43,6 @@ export class PaymentService {
       return { reference: data.reference };
     }
 
-    // Provider-specific implementation
-    // Example for Paystack/Flutterwave pattern
     const response = await fetch(`${this.getProviderBaseUrl()}/transaction/initialize`, {
       method: "POST",
       headers: {
@@ -93,7 +91,6 @@ export class PaymentService {
   verifyWebhookSignature(payload: string, signature: string): boolean {
     if (this.provider === "manual") return true;
 
-    // Implement HMAC verification based on provider
     const crypto = require("crypto");
     const hash = crypto
       .createHmac("sha512", this.webhookSecret)
@@ -104,23 +101,25 @@ export class PaymentService {
   }
 
   async processWebhook(payload: WebhookPayload): Promise<void> {
-    if (!db) return;
+    const supabase = await createClient();
 
     if (payload.event === "charge.success" && payload.reference) {
-      const transaction = await db.paymentTransaction.findFirst({
-        where: { providerReference: payload.reference },
-      });
+      const { data: transaction } = await supabase
+        .from("payment_transactions")
+        .select("*")
+        .eq("provider_reference", payload.reference)
+        .single();
 
       if (transaction && transaction.status === "pending") {
-        await db.paymentTransaction.update({
-          where: { id: transaction.id },
-          data: { status: "success" },
-        });
+        await supabase
+          .from("payment_transactions")
+          .update({ status: "success" })
+          .eq("id", transaction.id);
 
-        await db.userProfile.update({
-          where: { userId: transaction.userId },
-          data: { verificationStatus: "verified" },
-        });
+        await supabase
+          .from("profiles")
+          .update({ verification_status: "verified" })
+          .eq("user_id", transaction.user_id);
       }
     }
   }

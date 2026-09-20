@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
 import { v4 as uuidv4 } from "uuid";
 
 export async function reviewVerification(
@@ -7,59 +7,56 @@ export async function reviewVerification(
   approved: boolean,
   notes?: string
 ) {
-  if (!db) throw new Error("Database not available");
+  const supabase = await createClient();
 
-  return db.$transaction(async (tx: any) => {
-    const profile = await tx.userProfile.findUnique({
-      where: { userId },
-    });
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("verification_status")
+    .eq("user_id", userId)
+    .single();
 
-    if (!profile) throw new Error("User profile not found");
+  if (profileError || !profile) throw new Error("User profile not found");
 
-    const newStatus = approved ? "verified" : "rejected";
+  const newStatus = approved ? "verified" : "rejected";
 
-    await tx.userProfile.update({
-      where: { userId },
-      data: { verificationStatus: newStatus },
-    });
+  await supabase
+    .from("profiles")
+    .update({ verification_status: newStatus })
+    .eq("user_id", userId);
 
-    await tx.paymentProof.updateMany({
-      where: { userId, status: "pending" },
-      data: {
-        status: approved ? "approved" : "rejected",
-        reviewedBy: reviewerId,
-        reviewedAt: new Date(),
-        notes,
-      },
-    });
+  await supabase
+    .from("payment_proofs")
+    .update({
+      status: approved ? "approved" : "rejected",
+      reviewed_by: reviewerId,
+      reviewed_at: new Date().toISOString(),
+      notes,
+    })
+    .eq("user_id", userId)
+    .eq("status", "pending");
 
-    await tx.notification.create({
-      data: {
-        id: uuidv4(),
-        userId,
-        type: approved ? "verification_approved" : "verification_rejected",
-        title: approved ? "Verification Approved" : "Verification Rejected",
-        message: approved
-          ? "Your account has been verified. You now have full access to StreakPay."
-          : `Your verification was rejected. ${notes || "Please contact support."}`,
-      },
-    });
-
-    await tx.auditLog.create({
-      data: {
-        id: uuidv4(),
-        actorId: reviewerId,
-        actorEmail: "admin",
-        action: approved ? "ADMIN_APPROVED_VERIFICATION" : "ADMIN_REJECTED_VERIFICATION",
-        targetId: userId,
-        targetType: "user",
-        previousState: { verificationStatus: profile.verificationStatus },
-        newState: { verificationStatus: newStatus },
-      },
-    });
-
-    return { userId, status: newStatus };
+  await supabase.from("notifications").insert({
+    id: uuidv4(),
+    user_id: userId,
+    type: approved ? "verification_approved" : "verification_rejected",
+    title: approved ? "Verification Approved" : "Verification Rejected",
+    message: approved
+      ? "Your account has been verified. You now have full access to StreakPay."
+      : `Your verification was rejected. ${notes || "Please contact support."}`,
   });
+
+  await supabase.from("audit_logs").insert({
+    id: uuidv4(),
+    actor_id: reviewerId,
+    actor_email: "admin",
+    action: approved ? "ADMIN_APPROVED_VERIFICATION" : "ADMIN_REJECTED_VERIFICATION",
+    target_id: userId,
+    target_type: "user",
+    previous_state: { verification_status: profile.verification_status },
+    new_state: { verification_status: newStatus },
+  });
+
+  return { userId, status: newStatus };
 }
 
 export async function suspendUser(
@@ -67,40 +64,39 @@ export async function suspendUser(
   adminId: string,
   reason: string
 ) {
-  if (!db) throw new Error("Database not available");
+  const supabase = await createClient();
 
-  return db.$transaction(async (tx: any) => {
-    const profile = await tx.userProfile.findUnique({ where: { userId } });
-    if (!profile) throw new Error("User not found");
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("verification_status")
+    .eq("user_id", userId)
+    .single();
 
-    await tx.userProfile.update({
-      where: { userId },
-      data: { verificationStatus: "suspended" },
-    });
+  if (profileError || !profile) throw new Error("User not found");
 
-    await tx.notification.create({
-      data: {
-        id: uuidv4(),
-        userId,
-        type: "security_alert",
-        title: "Account Suspended",
-        message: `Your account has been suspended. Reason: ${reason}`,
-      },
-    });
+  await supabase
+    .from("profiles")
+    .update({ verification_status: "suspended" })
+    .eq("user_id", userId);
 
-    await tx.auditLog.create({
-      data: {
-        id: uuidv4(),
-        actorId: adminId,
-        actorEmail: "admin",
-        action: "ADMIN_SUSPENDED_USER",
-        targetId: userId,
-        targetType: "user",
-        previousState: { verificationStatus: profile.verificationStatus },
-        newState: { verificationStatus: "suspended", reason },
-      },
-    });
-
-    return { userId, status: "suspended" };
+  await supabase.from("notifications").insert({
+    id: uuidv4(),
+    user_id: userId,
+    type: "security_alert",
+    title: "Account Suspended",
+    message: `Your account has been suspended. Reason: ${reason}`,
   });
+
+  await supabase.from("audit_logs").insert({
+    id: uuidv4(),
+    actor_id: adminId,
+    actor_email: "admin",
+    action: "ADMIN_SUSPENDED_USER",
+    target_id: userId,
+    target_type: "user",
+    previous_state: { verification_status: profile.verification_status },
+    new_state: { verification_status: "suspended", reason },
+  });
+
+  return { userId, status: "suspended" };
 }

@@ -1,43 +1,43 @@
 import { NextResponse } from "next/server";
 import { updateProfileSchema } from "@/validators/auth";
-import { getCurrentUser, getSession } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
 import { getZodErrorMessage } from "@/lib/errors";
 
 export async function GET() {
   try {
-    if (!db) {
-      return NextResponse.json(
-        { error: "Database not configured" },
-        { status: 503 }
-      );
-    }
-
-    const session = await getSession();
-    if (!session) {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const profile = await db.userProfile.findUnique({
-      where: { userId: session.user.id },
-    });
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
 
-    const streak = await db.streak.findUnique({
-      where: { userId: session.user.id },
-    });
+    const { data: streak } = await supabase
+      .from("streaks")
+      .select("current_streak, longest_streak")
+      .eq("user_id", user.id)
+      .single();
 
-    const wallet = await db.wallet.findUnique({
-      where: { userId_currency: { userId: session.user.id, currency: "NGN" } },
-    });
+    const { data: wallet } = await supabase
+      .from("wallets")
+      .select("balance, currency")
+      .eq("user_id", user.id)
+      .eq("currency", "NGN")
+      .single();
 
     return NextResponse.json({
       user: {
-        id: session.user.id,
-        email: session.user.email,
-        createdAt: session.user.createdAt,
+        id: user.id,
+        email: user.email,
+        createdAt: user.created_at,
       },
       profile: profile || null,
-      streak: streak ? { currentStreak: streak.currentStreak, longestStreak: streak.longestStreak } : null,
+      streak: streak || null,
       wallet: wallet ? { balance: Number(wallet.balance), currency: wallet.currency } : null,
     });
   } catch (error) {
@@ -51,15 +51,9 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
-    if (!db) {
-      return NextResponse.json(
-        { error: "Database not configured" },
-        { status: 503 }
-      );
-    }
-
-    const user = await getCurrentUser();
-    if (!user) {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -73,18 +67,18 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const updatedProfile = await db.userProfile.update({
-      where: { userId: user.id },
-      data: parsed.data,
-    });
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from("user_profiles")
+      .update(parsed.data)
+      .eq("user_id", user.id)
+      .select("full_name, tiktok_username, snapchat_username")
+      .single();
+
+    if (updateError) throw updateError;
 
     return NextResponse.json({
       success: true,
-      profile: {
-        fullName: updatedProfile.fullName,
-        tiktokUsername: updatedProfile.tiktokUsername,
-        snapchatUsername: updatedProfile.snapchatUsername,
-      },
+      profile: updatedProfile,
     });
   } catch (error) {
     console.error("Update profile error:", error);

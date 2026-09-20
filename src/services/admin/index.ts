@@ -1,56 +1,65 @@
-import { db } from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
 
 export async function getAdminStats() {
-  if (!db) {
-    return {
-      totalUsers: 0,
-      verifiedUsers: 0,
-      pendingVerification: 0,
-      totalRewardLiability: 0,
-      pendingWithdrawals: 0,
-      withdrawalLiability: 0,
-      totalPaymentVolume: 0,
-    };
-  }
+  const supabase = await createClient();
 
   const [
-    totalUsers,
-    verifiedUsers,
-    pendingVerification,
-    pendingWithdrawals,
-    rewardAgg,
-    withdrawalAgg,
-    paymentAgg,
+    { count: totalUsers },
+    { count: verifiedUsers },
+    { count: pendingVerification },
+    { count: pendingWithdrawals },
+    { data: rewardAgg },
+    { data: withdrawalAgg },
+    { data: paymentAgg },
   ] = await Promise.all([
-    db.user.count(),
-    db.userProfile.count({ where: { verificationStatus: "verified" } }),
-    db.userProfile.count({
-      where: {
-        verificationStatus: { in: ["payment_pending", "proof_submitted", "under_review"] },
-      },
-    }),
-    db.withdrawalRequest.count({
-      where: { status: { in: ["requested", "under_review", "approved"] } },
-    }),
-    db.wallet.aggregate({ _sum: { balance: true }, where: { currency: "NGN" } }),
-    db.withdrawalRequest.aggregate({
-      _sum: { amount: true },
-      where: { status: { in: ["requested", "under_review", "approved", "processing"] } },
-    }),
-    db.paymentTransaction.aggregate({
-      _sum: { amount: true },
-      where: { status: "success" },
-    }),
+    supabase.from("profiles").select("*", { count: "exact", head: true }),
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("verification_status", "verified"),
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .in("verification_status", ["payment_pending", "proof_submitted", "under_review"]),
+    supabase
+      .from("withdrawal_requests")
+      .select("*", { count: "exact", head: true })
+      .in("status", ["requested", "under_review", "approved"]),
+    supabase
+      .from("wallets")
+      .select("balance")
+      .eq("currency", "NGN"),
+    supabase
+      .from("withdrawal_requests")
+      .select("amount")
+      .in("status", ["requested", "under_review", "approved", "processing"]),
+    supabase
+      .from("payment_transactions")
+      .select("amount")
+      .eq("status", "success"),
   ]);
 
+  const totalRewardLiability = (rewardAgg || []).reduce(
+    (sum: number, r: any) => sum + Number(r.balance || 0),
+    0
+  );
+  const withdrawalLiability = (withdrawalAgg || []).reduce(
+    (sum: number, r: any) => sum + Number(r.amount || 0),
+    0
+  );
+  const totalPaymentVolume = (paymentAgg || []).reduce(
+    (sum: number, r: any) => sum + Number(r.amount || 0),
+    0
+  );
+
   return {
-    totalUsers,
-    verifiedUsers,
-    pendingVerification,
-    pendingWithdrawals,
-    totalRewardLiability: Number(rewardAgg._sum.balance || 0),
-    withdrawalLiability: Number(withdrawalAgg._sum.amount || 0),
-    totalPaymentVolume: Number(paymentAgg._sum.amount || 0),
+    totalUsers: totalUsers || 0,
+    verifiedUsers: verifiedUsers || 0,
+    pendingVerification: pendingVerification || 0,
+    pendingWithdrawals: pendingWithdrawals || 0,
+    totalRewardLiability,
+    withdrawalLiability,
+    totalPaymentVolume,
   };
 }
 
@@ -60,56 +69,64 @@ export async function getAllUsers(options?: {
   search?: string;
   status?: string;
 }) {
-  if (!db) return [];
+  const supabase = await createClient();
 
-  const where: any = {};
+  let query = supabase
+    .from("profiles")
+    .select("*, user_streaks(*), wallets(*)")
+    .order("created_at", { ascending: false });
+
   if (options?.search) {
-    where.OR = [
-      { email: { contains: options.search, mode: "insensitive" } },
-      { profile: { fullName: { contains: options.search, mode: "insensitive" } } },
-    ];
-  }
-  if (options?.status) {
-    where.profile = { verificationStatus: options.status };
+    query = query.or(`full_name.ilike.%${options.search}%,email.ilike.%${options.search}%`);
   }
 
-  return db.user.findMany({
-    where,
-    include: { profile: true, streak: true },
-    orderBy: { createdAt: "desc" },
-    take: options?.limit || 50,
-    skip: options?.offset || 0,
-  });
+  if (options?.status) {
+    query = query.eq("verification_status", options.status);
+  }
+
+  const from = options?.offset || 0;
+  const to = from + (options?.limit || 50) - 1;
+
+  const { data } = await query.range(from, to);
+
+  return data || [];
 }
 
 export async function getPendingVerifications() {
-  if (!db) return [];
+  const supabase = await createClient();
 
-  return db.paymentProof.findMany({
-    where: { status: "pending" },
-    include: {
-      user: { include: { profile: true } },
-    },
-    orderBy: { createdAt: "asc" },
-  });
+  const { data } = await supabase
+    .from("payment_proofs")
+    .select("*, profiles(user_id, full_name, email)")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true });
+
+  return data || [];
 }
 
 export async function getPendingWithdrawals() {
-  if (!db) return [];
+  const supabase = await createClient();
 
-  return db.withdrawalRequest.findMany({
-    where: { status: { in: ["requested", "under_review"] } },
-    include: { user: { include: { profile: true } } },
-    orderBy: { createdAt: "asc" },
-  });
+  const { data } = await supabase
+    .from("withdrawal_requests")
+    .select("*, profiles(user_id, full_name, email)")
+    .in("status", ["requested", "under_review"])
+    .order("created_at", { ascending: true });
+
+  return data || [];
 }
 
 export async function getAuditLogs(options?: { limit?: number; offset?: number }) {
-  if (!db) return [];
+  const supabase = await createClient();
 
-  return db.auditLog.findMany({
-    orderBy: { createdAt: "desc" },
-    take: options?.limit || 50,
-    skip: options?.offset || 0,
-  });
+  const from = options?.offset || 0;
+  const to = from + (options?.limit || 50) - 1;
+
+  const { data } = await supabase
+    .from("audit_logs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  return data || [];
 }

@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
+import { updateSession } from "@/lib/supabase/middleware";
 
 const protectedRoutes = [
   "/home",
@@ -12,15 +12,14 @@ const protectedRoutes = [
   "/notifications",
   "/settings",
   "/admin",
+  "/verify",
+  "/support",
 ];
 
 const authRoutes = ["/login", "/register", "/reset-password"];
 
-const apiRoutes = ["/api/auth"];
-
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const sessionToken = request.cookies.get("streakpay_session")?.value;
 
   const isProtectedRoute = protectedRoutes.some((route) =>
     pathname.startsWith(route)
@@ -28,23 +27,43 @@ export function middleware(request: NextRequest) {
   const isAuthRoute = authRoutes.some((route) =>
     pathname.startsWith(route)
   );
-  const isApiRoute = apiRoutes.some((route) => pathname.startsWith(route));
 
-  if (isProtectedRoute && !sessionToken) {
-    const url = new URL("/login", request.url);
-    url.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(url);
+  const supabaseResponse = await updateSession(request);
+
+  // If the user is not logged in and trying to access a protected route, redirect to login
+  if (isProtectedRoute) {
+    // The session check happens in updateSession — if no valid session,
+    // Supabase auth.getUser() will fail and the cookie won't be refreshed.
+    // We need to check if a session exists by looking for the supabase auth cookie.
+    const hasSession = request.cookies.get("sb-access-token")?.value ||
+                       request.cookies.get("sb:token")?.value;
+
+    // Also check for the standard Supabase auth cookie pattern
+    const allCookies = request.cookies.getAll();
+    const hasSupabaseCookie = allCookies.some(
+      (c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token")
+    );
+
+    if (!hasSession && !hasSupabaseCookie) {
+      const url = new URL("/login", request.url);
+      url.searchParams.set("redirect", pathname);
+      return Response.redirect(url);
+    }
   }
 
-  if (isAuthRoute && sessionToken) {
-    return NextResponse.redirect(new URL("/home", request.url));
+  // If the user is logged in and trying to access auth routes, redirect to home
+  if (isAuthRoute) {
+    const allCookies = request.cookies.getAll();
+    const hasSupabaseCookie = allCookies.some(
+      (c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token")
+    );
+
+    if (hasSupabaseCookie) {
+      return Response.redirect(new URL("/home", request.url));
+    }
   }
 
-  if (isApiRoute && !sessionToken && pathname !== "/api/auth/login" && pathname !== "/api/auth/register") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  return NextResponse.next();
+  return supabaseResponse;
 }
 
 export const config = {

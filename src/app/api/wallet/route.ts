@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { getWalletBalance } from "@/services/wallet";
 
 export async function GET() {
   try {
-    const session = await getSession();
-    if (!session) {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const balance = await getWalletBalance(session.user.id, "NGN");
+    const balance = await getWalletBalance(user.id, "NGN");
 
     return NextResponse.json({ balance, currency: "NGN" });
   } catch (error) {

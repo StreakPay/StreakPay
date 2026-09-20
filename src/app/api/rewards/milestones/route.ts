@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { checkMilestoneEligibility, claimMilestone } from "@/services/streak";
 
 export async function GET() {
   try {
-    const session = await getSession();
-    if (!session) {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const milestones = await checkMilestoneEligibility(session.user.id);
+    const milestones = await checkMilestoneEligibility(user.id);
 
     return NextResponse.json({ milestones });
   } catch (error) {
@@ -20,8 +21,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
-    if (!session) {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -32,7 +34,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "milestoneId is required" }, { status: 400 });
     }
 
-    const result = await claimMilestone(session.user.id, milestoneId);
+    const result = await claimMilestone(user.id, milestoneId);
     return NextResponse.json(result);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal server error";

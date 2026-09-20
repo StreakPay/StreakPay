@@ -1,16 +1,22 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
 import { getPendingVerifications } from "@/services/admin";
 
 export async function GET() {
   try {
-    const session = await getSession();
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    if (!db) return NextResponse.json({ error: "Database not available" }, { status: 503 });
+    const { data: admin } = await supabase
+      .from("admin_users")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("active", true)
+      .single();
 
-    const admin = await db.adminUser.findUnique({ where: { userId: session.user.id } });
     if (!admin) return NextResponse.json({ error: "Not an admin" }, { status: 403 });
 
     const pending = await getPendingVerifications();

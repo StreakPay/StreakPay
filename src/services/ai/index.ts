@@ -1,4 +1,4 @@
-﻿import { db } from "@/lib/db";
+﻿import { createClient } from "@/lib/supabase/server";
 
 interface AIMessage {
   role: "user" | "assistant" | "system";
@@ -151,33 +151,51 @@ export class AIService {
   }
 
   async executeTool(toolName: string, args: any, context: AIContext) {
-    if (!db) return { error: "Database not available" };
+    const supabase = await createClient();
     const { userId } = context;
 
     switch (toolName) {
       case "get_user_profile": {
-        return db.userProfile.findUnique({ where: { userId } });
+        const { data } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("user_id", userId)
+          .single();
+        return data;
       }
       case "get_streak": {
-        return db.streak.findUnique({ where: { userId } });
+        const { data } = await supabase
+          .from("user_streaks")
+          .select("*")
+          .eq("user_id", userId)
+          .single();
+        return data;
       }
       case "get_today_task": {
-        const streak = await db.streak.findUnique({ where: { userId } });
-        const dayIndex = (streak?.currentStreak || 0) % 4;
+        const { data: streak } = await supabase
+          .from("user_streaks")
+          .select("current_streak")
+          .eq("user_id", userId)
+          .single();
+        const dayIndex = (streak?.current_streak || 0) % 4;
         const tasks = ["Daily Engagement", "Daily Check-in", "Daily Quiz", "Share & Refer"];
         return { task: tasks[dayIndex], dayNumber: dayIndex + 1 };
       }
       case "get_reward_balance": {
-        const wallet = await db.wallet.findUnique({
-          where: { userId_currency: { userId, currency: "NGN" } },
-        });
+        const { data: wallet } = await supabase
+          .from("wallets")
+          .select("balance")
+          .eq("user_id", userId)
+          .eq("currency", "NGN")
+          .single();
         return { balance: wallet?.balance || 0, currency: "NGN" };
       }
       case "get_trading_account": {
-        const account = await db.tradingAccount.findUnique({
-          where: { userId },
-          include: { positions: true },
-        });
+        const { data: account } = await supabase
+          .from("trading_accounts")
+          .select("*, trading_positions(*)")
+          .eq("user_id", userId)
+          .single();
         return account;
       }
       default:
@@ -186,23 +204,36 @@ export class AIService {
   }
 
   private async buildSystemPrompt(context: AIContext): Promise<string> {
+    const supabase = await createClient();
     let userData = "";
-    if (db) {
-      const profile = await db.userProfile.findUnique({ where: { userId: context.userId } });
-      const streak = await db.streak.findUnique({ where: { userId: context.userId } });
-      const wallet = await db.wallet.findUnique({
-        where: { userId_currency: { userId: context.userId, currency: "NGN" } },
-      });
 
-      userData = `
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name, verification_status")
+      .eq("user_id", context.userId)
+      .single();
+
+    const { data: streak } = await supabase
+      .from("user_streaks")
+      .select("current_streak, longest_streak")
+      .eq("user_id", context.userId)
+      .single();
+
+    const { data: wallet } = await supabase
+      .from("wallets")
+      .select("balance")
+      .eq("user_id", context.userId)
+      .eq("currency", "NGN")
+      .single();
+
+    userData = `
 User Data:
-- Name: ${profile?.fullName || "Unknown"}
-- Verification: ${profile?.verificationStatus || "unverified"}
-- Current Streak: ${streak?.currentStreak || 0} days
-- Longest Streak: ${streak?.longestStreak || 0} days
-- Reward Balance: ₦${wallet?.balance || 0}
+- Name: ${profile?.full_name || "Unknown"}
+- Verification: ${profile?.verification_status || "unverified"}
+- Current Streak: ${streak?.current_streak || 0} days
+- Longest Streak: ${streak?.longest_streak || 0} days
+- Reward Balance: \u20A6${wallet?.balance || 0}
       `.trim();
-    }
 
     return `You are STREAK AI, a helpful assistant for the StreakPay platform.
 
@@ -244,7 +275,7 @@ ${userData}`;
     }
     if (lastMessage.includes("withdraw")) {
       return {
-        content: "To withdraw your rewards, go to the Withdrawals page. You need a verified account and minimum ₦500 balance. Would you like me to guide you there?",
+        content: "To withdraw your rewards, go to the Withdrawals page. You need a verified account and minimum \u20A6500 balance. Would you like me to guide you there?",
       };
     }
     return {

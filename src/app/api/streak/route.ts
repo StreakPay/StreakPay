@@ -1,34 +1,36 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
 import { getTodayTask } from "@/services/streak";
 
 export async function GET() {
   try {
-    const session = await getSession();
-    if (!session) {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const { data: streak } = await supabase
+      .from("streaks")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
 
-    const streak = await db?.streak.findUnique({ where: { userId } });
-    const todayTask = await getTodayTask(streak?.currentStreak || 0);
+    const todayTask = await getTodayTask(streak?.current_streak || 0);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayCompletion = await db?.streakCompletion.findFirst({
-      where: {
-        userId,
-        completedAt: {
-          gte: today,
-          lt: new Date(today.getTime() + 86400000),
-        },
-      },
-    });
+    const { data: todayCompletion } = await supabase
+      .from("streak_completions")
+      .select("id")
+      .eq("user_id", user.id)
+      .gte("completed_at", today.toISOString())
+      .lt("completed_at", new Date(today.getTime() + 86400000).toISOString())
+      .limit(1)
+      .single();
 
     return NextResponse.json({
-      streak: streak || { currentStreak: 0, longestStreak: 0 },
+      streak: streak || { current_streak: 0, longest_streak: 0 },
       todayTask,
       completedToday: !!todayCompletion,
     });

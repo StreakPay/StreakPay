@@ -1,25 +1,26 @@
-import { db } from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
 import { v4 as uuidv4 } from "uuid";
 
 export async function getOrCreateWallet(userId: string, currency: string = "NGN") {
-  if (!db) throw new Error("Database not available");
+  const supabase = await createClient();
 
-  let wallet = await db.wallet.findUnique({
-    where: { userId_currency: { userId, currency } },
-  });
+  const { data: existing } = await supabase
+    .from("wallets")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("currency", currency)
+    .single();
 
-  if (!wallet) {
-    wallet = await db.wallet.create({
-      data: {
-        id: uuidv4(),
-        userId,
-        currency,
-        balance: 0,
-      },
-    });
-  }
+  if (existing) return existing;
 
-  return wallet;
+  const { data, error } = await supabase
+    .from("wallets")
+    .insert({ user_id: userId, currency, balance: 0 })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
 }
 
 export async function creditWallet(
@@ -29,45 +30,47 @@ export async function creditWallet(
   type: string,
   source: string,
   reference?: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ) {
-  if (!db) throw new Error("Database not available");
-
+  const supabase = await createClient();
   const ref = reference || `ref_${uuidv4().slice(0, 8)}`;
 
-  return db.$transaction(async (tx: any) => {
-    const wallet = await tx.wallet.findUnique({
-      where: { userId_currency: { userId, currency } },
-    });
+  // Get current wallet
+  const { data: wallet } = await supabase
+    .from("wallets")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("currency", currency)
+    .single();
 
-    if (!wallet) {
-      throw new Error("Wallet not found");
-    }
+  if (!wallet) throw new Error("Wallet not found");
 
-    const newBalance = Number(wallet.balance) + amount;
+  const newBalance = Number(wallet.balance) + amount;
 
-    await tx.wallet.update({
-      where: { id: wallet.id },
-      data: { balance: newBalance },
-    });
+  // Update balance
+  await supabase
+    .from("wallets")
+    .update({ balance: newBalance, updated_at: new Date().toISOString() })
+    .eq("id", wallet.id);
 
-    const ledgerEntry = await tx.ledgerEntry.create({
-      data: {
-        id: uuidv4(),
-        userId,
-        amount,
-        currency,
-        direction: "credit",
-        type,
-        reference: ref,
-        source,
-        status: "completed",
-        metadata,
-      },
-    });
+  // Create ledger entry
+  const { data: ledgerEntry } = await supabase
+    .from("ledger_entries")
+    .insert({
+      user_id: userId,
+      amount,
+      currency,
+      direction: "credit",
+      type,
+      reference: ref,
+      source,
+      status: "completed",
+      metadata,
+    })
+    .select()
+    .single();
 
-    return { wallet: { ...wallet, balance: newBalance }, ledgerEntry };
-  });
+  return { wallet: { ...wallet, balance: newBalance }, ledgerEntry };
 }
 
 export async function debitWallet(
@@ -77,74 +80,76 @@ export async function debitWallet(
   type: string,
   source: string,
   reference?: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ) {
-  if (!db) throw new Error("Database not available");
-
+  const supabase = await createClient();
   const ref = reference || `ref_${uuidv4().slice(0, 8)}`;
 
-  return db.$transaction(async (tx: any) => {
-    const wallet = await tx.wallet.findUnique({
-      where: { userId_currency: { userId, currency } },
-    });
+  const { data: wallet } = await supabase
+    .from("wallets")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("currency", currency)
+    .single();
 
-    if (!wallet) {
-      throw new Error("Wallet not found");
-    }
+  if (!wallet) throw new Error("Wallet not found");
+  if (Number(wallet.balance) < amount) throw new Error("Insufficient balance");
 
-    if (Number(wallet.balance) < amount) {
-      throw new Error("Insufficient balance");
-    }
+  const newBalance = Number(wallet.balance) - amount;
 
-    const newBalance = Number(wallet.balance) - amount;
+  await supabase
+    .from("wallets")
+    .update({ balance: newBalance, updated_at: new Date().toISOString() })
+    .eq("id", wallet.id);
 
-    await tx.wallet.update({
-      where: { id: wallet.id },
-      data: { balance: newBalance },
-    });
+  const { data: ledgerEntry } = await supabase
+    .from("ledger_entries")
+    .insert({
+      user_id: userId,
+      amount,
+      currency,
+      direction: "debit",
+      type,
+      reference: ref,
+      source,
+      status: "completed",
+      metadata,
+    })
+    .select()
+    .single();
 
-    const ledgerEntry = await tx.ledgerEntry.create({
-      data: {
-        id: uuidv4(),
-        userId,
-        amount,
-        currency,
-        direction: "debit",
-        type,
-        reference: ref,
-        source,
-        status: "completed",
-        metadata,
-      },
-    });
-
-    return { wallet: { ...wallet, balance: newBalance }, ledgerEntry };
-  });
+  return { wallet: { ...wallet, balance: newBalance }, ledgerEntry };
 }
 
 export async function getWalletBalance(userId: string, currency: string = "NGN") {
-  if (!db) return 0;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("wallets")
+    .select("balance")
+    .eq("user_id", userId)
+    .eq("currency", currency)
+    .single();
 
-  const wallet = await db.wallet.findUnique({
-    where: { userId_currency: { userId, currency } },
-  });
-
-  return wallet ? Number(wallet.balance) : 0;
+  return data ? Number(data.balance) : 0;
 }
 
 export async function getLedgerEntries(
   userId: string,
   options?: { limit?: number; offset?: number; type?: string }
 ) {
-  if (!db) return [];
+  const supabase = await createClient();
 
-  const where: any = { userId };
-  if (options?.type) where.type = options.type;
+  let query = supabase
+    .from("ledger_entries")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .range(options?.offset || 0, (options?.offset || 0) + (options?.limit || 50) - 1);
 
-  return db.ledgerEntry.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: options?.limit || 50,
-    skip: options?.offset || 0,
-  });
+  if (options?.type) {
+    query = query.eq("type", options.type);
+  }
+
+  const { data } = await query;
+  return data || [];
 }

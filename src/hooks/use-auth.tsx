@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 interface User {
   id: string;
@@ -8,7 +9,7 @@ interface User {
   fullName: string;
   profileImage: string | null;
   verificationStatus: string;
-  createdAt: Date;
+  createdAt: string;
 }
 
 interface AuthContextType {
@@ -30,43 +31,75 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const supabase = createClient();
 
-  const refreshUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/me");
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-      } else {
+      const { data: { user: authUser }, error } = await supabase.auth.getUser();
+      if (error || !authUser) {
         setUser(null);
+        return;
       }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", authUser.id)
+        .single();
+
+      setUser({
+        id: authUser.id,
+        email: authUser.email || "",
+        fullName: profile?.full_name || "",
+        profileImage: profile?.profile_image || null,
+        verificationStatus: profile?.verification_status || "unverified",
+        createdAt: authUser.created_at,
+      });
     } catch {
       setUser(null);
     }
-  };
+  }, [supabase]);
+
+  const refreshUser = useCallback(async () => {
+    await fetchUser();
+  }, [fetchUser]);
 
   useEffect(() => {
-    refreshUser().finally(() => setLoading(false));
-  }, []);
+    fetchUser().finally(() => setLoading(false));
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === "SIGNED_IN" && session) {
+          await fetchUser();
+        } else if (event === "SIGNED_OUT") {
+          setUser(null);
+        } else if (event === "TOKEN_REFRESHED" && session) {
+          await fetchUser();
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, [fetchUser, supabase.auth]);
 
   const login = async (email: string, password: string) => {
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        return { error: data.error || "Login failed" };
+      if (error) {
+        if (error.message.includes("Invalid login")) {
+          return { error: "Email or password is incorrect." };
+        }
+        return { error: error.message };
       }
 
       await refreshUser();
       return {};
     } catch {
-      return { error: "Network error" };
+      return { error: "Network error. Please try again." };
     }
   };
 
@@ -77,27 +110,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     confirmPassword: string;
   }) => {
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+      if (formData.password !== formData.confirmPassword) {
+        return { error: "Passwords don't match." };
+      }
+
+      const { error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+          },
+        },
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        return { error: data.error || "Registration failed" };
+      if (error) {
+        if (error.message.includes("already registered")) {
+          return { error: "This email is already registered." };
+        }
+        if (error.message.includes("valid email")) {
+          return { error: "Please enter a valid email address." };
+        }
+        return { error: error.message };
       }
 
       await refreshUser();
       return {};
     } catch {
-      return { error: "Network error" };
+      return { error: "Network error. Please try again." };
     }
   };
 
   const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await supabase.auth.signOut();
     setUser(null);
   };
 

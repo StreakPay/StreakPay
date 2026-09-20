@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { getLedgerEntries } from "@/services/wallet";
 
 export async function GET(request: Request) {
   try {
-    const session = await getSession();
-    if (!session) {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "50");
     const type = searchParams.get("type") || undefined;
 
-    const entries = await getLedgerEntries(session.user.id, { limit, type });
+    const entries = await getLedgerEntries(user.id, { limit, type });
 
     return NextResponse.json({ entries });
   } catch (error) {

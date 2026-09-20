@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { placeOrder } from "@/services/trading";
-import { getSession } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { tradeOrderSchema } from "@/validators";
 import { getZodErrorMessage } from "@/lib/errors";
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
-    if (!session) {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     }
 
     const { side, quantity, price } = parsed.data;
-    const order = await placeOrder(session.user.id, side, quantity, price);
+    const order = await placeOrder(user.id, side, quantity, price);
 
     return NextResponse.json({ success: true, order });
   } catch (error: any) {

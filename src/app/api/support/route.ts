@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { v4 as uuidv4 } from "uuid";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!db) return NextResponse.json({ error: "Database not available" }, { status: 503 });
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const body = await request.json();
     const { subject, message, priority } = body;
@@ -16,21 +16,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Subject and message are required" }, { status: 400 });
     }
 
-    const ticket = await db.supportTicket.create({
-      data: {
-        id: uuidv4(),
-        userId: session.user.id,
+    const { data: ticket, error: ticketError } = await supabase
+      .from("support_tickets")
+      .insert({
+        user_id: user.id,
         subject,
         priority: priority || "medium",
-        messages: {
-          create: {
-            id: uuidv4(),
-            senderId: session.user.id,
-            content: message,
-          },
-        },
-      },
-    });
+      })
+      .select("id")
+      .single();
+
+    if (ticketError) throw ticketError;
+
+    const { error: msgError } = await supabase
+      .from("support_messages")
+      .insert({
+        ticket_id: ticket.id,
+        sender_id: user.id,
+        content: message,
+      });
+
+    if (msgError) throw msgError;
 
     return NextResponse.json({ success: true, ticket: { id: ticket.id } });
   } catch (error) {
@@ -40,15 +46,19 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const session = await getSession();
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!db) return NextResponse.json({ error: "Database not available" }, { status: 503 });
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const tickets = await db.supportTicket.findMany({
-      where: { userId: session.user.id },
-      include: { messages: true },
-      orderBy: { createdAt: "desc" },
-    });
+    const { data: tickets, error: ticketsError } = await supabase
+      .from("support_tickets")
+      .select("*, support_messages(*)")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (ticketsError) throw ticketsError;
 
     return NextResponse.json({ tickets });
   } catch (error) {

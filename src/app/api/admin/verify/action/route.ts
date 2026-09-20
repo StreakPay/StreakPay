@@ -1,20 +1,24 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
 import { reviewVerification } from "@/services/admin/verification";
-
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
-  if (!db) throw new Error("Database not available");
-  const admin = await db.adminUser.findUnique({ where: { userId: session.user.id } });
-  if (!admin || !admin.active) throw new Error("Not an admin");
-  return { session };
-}
 
 export async function POST(request: Request) {
   try {
-    const { session } = await requireAdmin();
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data: admin } = await supabase
+      .from("admin_users")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("active", true)
+      .single();
+
+    if (!admin) return NextResponse.json({ error: "Not an admin" }, { status: 403 });
+
     const body = await request.json();
     const { userId, approved, notes } = body;
 
@@ -22,7 +26,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "userId and approved (boolean) are required" }, { status: 400 });
     }
 
-    const result = await reviewVerification(userId, session.user.id, approved, notes);
+    const result = await reviewVerification(userId, user.id, approved, notes);
     return NextResponse.json({ success: true, result });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";

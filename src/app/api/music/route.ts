@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { v4 as uuidv4 } from "uuid";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
   try {
-    if (!db) {
+    const supabase = await createClient();
+
+    const { data: activities, error } = await supabase
+      .from("music_activities")
+      .select("*")
+      .eq("active", true)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (error) {
       return NextResponse.json({
         activities: [
           { id: "1", title: "Music Quiz: Afrobeats Classics", description: "Test your knowledge of Afrobeats hits", type: "quiz", reward: 100 },
@@ -13,12 +21,6 @@ export async function GET() {
         ],
       });
     }
-
-    const activities = await db.musicActivity.findMany({
-      where: { active: true },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    });
 
     return NextResponse.json({ activities });
   } catch (error) {

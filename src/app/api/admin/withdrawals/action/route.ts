@@ -1,20 +1,24 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
 import { approveWithdrawal, rejectWithdrawal } from "@/services/admin/withdrawals";
-
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
-  if (!db) throw new Error("Database not available");
-  const admin = await db.adminUser.findUnique({ where: { userId: session.user.id } });
-  if (!admin || !admin.active) throw new Error("Not an admin");
-  return { session };
-}
 
 export async function POST(request: Request) {
   try {
-    const { session } = await requireAdmin();
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data: admin } = await supabase
+      .from("admin_users")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("active", true)
+      .single();
+
+    if (!admin) return NextResponse.json({ error: "Not an admin" }, { status: 403 });
+
     const body = await request.json();
     const { withdrawalId, action, reason } = body;
 
@@ -24,9 +28,9 @@ export async function POST(request: Request) {
 
     let result;
     if (action === "approve") {
-      result = await approveWithdrawal(withdrawalId, session.user.id);
+      result = await approveWithdrawal(withdrawalId, user.id);
     } else if (action === "reject") {
-      result = await rejectWithdrawal(withdrawalId, session.user.id, reason);
+      result = await rejectWithdrawal(withdrawalId, user.id, reason);
     } else {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }

@@ -1,15 +1,8 @@
-let db: any = null;
+import { createClient } from "@/lib/supabase/server";
 
-if (process.env.DATABASE_URL) {
-  try {
-    const { PrismaClient } = require("@prisma/client");
-    const globalForPrisma = globalThis as unknown as { prisma: any };
-    db = globalForPrisma.prisma ?? new PrismaClient();
-    if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
-  } catch {
-    console.warn("Prisma client not available. Run `npx prisma generate` after installing prisma.");
-    db = null;
-  }
+export { createClient as getDb };
+
+// Helper to get a server-side Supabase client (replaces old `db` import)
+export async function getSupabase() {
+  return createClient();
 }
-
-export { db };

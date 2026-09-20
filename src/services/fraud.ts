@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
 
 interface FraudCheck {
   userId: string;
@@ -12,76 +12,75 @@ export async function checkSuspiciousActivity(userId: string): Promise<FraudChec
   const reasons: string[] = [];
   let riskScore = 0;
 
-  if (!db) return { userId, type: "check", riskScore: 0, reasons: [], flagged: false };
+  const supabase = await createClient();
 
   const now = new Date();
-  const oneHourAgo = new Date(now.getTime() - 3600000);
-  const oneDayAgo = new Date(now.getTime() - 86400000);
+  const oneHourAgo = new Date(now.getTime() - 3600000).toISOString();
+  const oneDayAgo = new Date(now.getTime() - 86400000).toISOString();
 
-  const recentCompletions = await db.streakCompletion.count({
-    where: {
-      userId,
-      completedAt: { gte: oneHourAgo },
-    },
-  });
+  const { count: recentCompletions } = await supabase
+    .from("streak_completions")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("completed_at", oneHourAgo);
 
-  if (recentCompletions > 5) {
+  if ((recentCompletions || 0) > 5) {
     reasons.push("Excessive streak completions in last hour");
     riskScore += 30;
   }
 
-  const failedPayments = await db.paymentTransaction.count({
-    where: {
-      userId,
-      status: "failed",
-      createdAt: { gte: oneDayAgo },
-    },
-  });
+  const { count: failedPayments } = await supabase
+    .from("payment_transactions")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("status", "failed")
+    .gte("created_at", oneDayAgo);
 
-  if (failedPayments > 3) {
+  if ((failedPayments || 0) > 3) {
     reasons.push("Multiple failed payment attempts");
     riskScore += 25;
   }
 
-  const pendingWithdrawals = await db.withdrawalRequest.count({
-    where: {
-      userId,
-      status: { in: ["requested", "under_review"] },
-    },
-  });
+  const { count: pendingWithdrawals } = await supabase
+    .from("withdrawal_requests")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .in("status", ["requested", "under_review"]);
 
-  if (pendingWithdrawals > 2) {
+  if ((pendingWithdrawals || 0) > 2) {
     reasons.push("Multiple pending withdrawals");
     riskScore += 20;
   }
 
-  const apiRequests = await db.streakCompletion.count({
-    where: {
-      userId,
-      completedAt: { gte: oneHourAgo },
-    },
-  });
+  const { count: apiRequests } = await supabase
+    .from("streak_completions")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("completed_at", oneHourAgo);
 
-  if (apiRequests > 10) {
+  if ((apiRequests || 0) > 10) {
     reasons.push("High frequency API usage");
     riskScore += 15;
   }
 
-  const profile = await db.userProfile.findUnique({ where: { userId } });
-  if (profile?.verificationStatus === "rejected") {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("verification_status")
+    .eq("user_id", userId)
+    .single();
+
+  if (profile?.verification_status === "rejected") {
     reasons.push("Previously rejected verification");
     riskScore += 40;
   }
 
   if (riskScore >= 50) {
-    await db.notification.create({
-      data: {
-        id: crypto.randomUUID(),
-        userId,
-        type: "security_alert",
-        title: "Suspicious Activity Detected",
-        message: "We detected unusual activity on your account. Please contact support if this was you.",
-      },
+    await supabase.from("notifications").insert({
+      id: crypto.randomUUID(),
+      user_id: userId,
+      type: "security_alert",
+      title: "Suspicious Activity Detected",
+      message: "We detected unusual activity on your account. Please contact support if this was you.",
     });
   }
 
@@ -95,8 +94,13 @@ export async function checkSuspiciousActivity(userId: string): Promise<FraudChec
 }
 
 export async function checkDuplicateAccounts(email: string, ip?: string): Promise<boolean> {
-  if (!db) return false;
+  const supabase = await createClient();
 
-  const existingUser = await db.user.findUnique({ where: { email } });
-  return !!existingUser;
+  const { data } = await supabase
+    .from("profiles")
+    .select("user_id")
+    .eq("email", email)
+    .single();
+
+  return !!data;
 }

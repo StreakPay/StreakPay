@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
 import { v4 as uuidv4 } from "uuid";
 
 const ACTIVITY_CYCLE = [
@@ -9,66 +9,70 @@ const ACTIVITY_CYCLE = [
 ];
 
 export async function getTodayTask(streakDay: number) {
+  const supabase = await createClient();
   const dayIndex = streakDay % ACTIVITY_CYCLE.length;
   const activity = ACTIVITY_CYCLE[dayIndex];
 
-  let task = await db?.streakTask.findFirst({
-    where: { activityType: activity.activityType, dayNumber: dayIndex + 1 },
-  });
+  const { data: task } = await supabase
+    .from("streak_tasks")
+    .select("*")
+    .eq("activity_type", activity.activityType)
+    .eq("day_number", dayIndex + 1)
+    .single();
 
-  if (!task && db) {
-    task = await db.streakTask.create({
-      data: {
-        id: uuidv4(),
-        activityType: activity.activityType,
-        dayNumber: dayIndex + 1,
-        title: activity.title,
-        description: activity.description,
-      },
-    });
-  }
+  if (task) return task;
 
-  return task || { ...activity, id: `task-${dayIndex + 1}`, dayNumber: dayIndex + 1, active: true };
+  const { data: newTask } = await supabase
+    .from("streak_tasks")
+    .insert({
+      activity_type: activity.activityType,
+      day_number: dayIndex + 1,
+      title: activity.title,
+      description: activity.description,
+    })
+    .select()
+    .single();
+
+  return newTask || { ...activity, id: `task-${dayIndex + 1}`, day_number: dayIndex + 1, active: true };
 }
 
 export async function completeStreakTask(userId: string, taskId: string) {
-  if (!db) throw new Error("Database not available");
+  const supabase = await createClient();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(today.getTime() + 86400000);
 
-  const existingCompletion = await db.streakCompletion.findFirst({
-    where: {
-      userId,
-      completedAt: {
-        gte: today,
-        lt: new Date(today.getTime() + 86400000),
-      },
-    },
-  });
+  const { data: existingCompletion } = await supabase
+    .from("streak_completions")
+    .select("id")
+    .eq("user_id", userId)
+    .gte("completed_at", today.toISOString())
+    .lt("completed_at", todayEnd.toISOString())
+    .limit(1);
 
-  if (existingCompletion) {
+  if (existingCompletion && existingCompletion.length > 0) {
     throw new Error("Already completed today's task");
   }
 
-  const streak = await db.streak.findUnique({ where: { userId } });
+  const { data: streak } = await supabase
+    .from("streaks")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
   if (!streak) throw new Error("Streak not found");
 
-  const lastCompletion = streak.lastCompletionDate
-    ? new Date(streak.lastCompletionDate)
-    : null;
-
-  let newStreakCount = streak.currentStreak;
+  const lastCompletion = streak.last_completion_date ? new Date(streak.last_completion_date) : null;
+  let newStreakCount = streak.current_streak;
 
   if (lastCompletion) {
     const lastDate = new Date(lastCompletion);
     lastDate.setHours(0, 0, 0, 0);
-    const diffDays = Math.floor(
-      (today.getTime() - lastDate.getTime()) / 86400000
-    );
+    const diffDays = Math.floor((today.getTime() - lastDate.getTime()) / 86400000);
 
     if (diffDays === 1) {
-      newStreakCount = streak.currentStreak + 1;
+      newStreakCount = streak.current_streak + 1;
     } else if (diffDays > 1) {
       newStreakCount = 1;
     }
@@ -76,115 +80,128 @@ export async function completeStreakTask(userId: string, taskId: string) {
     newStreakCount = 1;
   }
 
-  const newLongest = Math.max(streak.longestStreak, newStreakCount);
+  const newLongest = Math.max(streak.longest_streak, newStreakCount);
 
-  await db.streakCompletion.create({
-    data: {
-      id: uuidv4(),
-      userId,
-      streakId: streak.id,
-      taskId,
-      completedAt: new Date(),
-      verified: true,
-    },
+  await supabase.from("streak_completions").insert({
+    user_id: userId,
+    streak_id: streak.id,
+    task_id: taskId,
+    completed_at: new Date().toISOString(),
+    verified: true,
   });
 
-  await db.streak.update({
-    where: { userId },
-    data: {
-      currentStreak: newStreakCount,
-      longestStreak: newLongest,
-      lastCompletionDate: new Date(),
-    },
-  });
+  await supabase
+    .from("streaks")
+    .update({
+      current_streak: newStreakCount,
+      longest_streak: newLongest,
+      last_completion_date: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId);
 
-  return {
-    currentStreak: newStreakCount,
-    longestStreak: newLongest,
-    completed: true,
-  };
+  return { currentStreak: newStreakCount, longestStreak: newLongest, completed: true };
 }
 
 export async function checkMilestoneEligibility(userId: string) {
-  if (!db) return [];
+  const supabase = await createClient();
 
-  const streak = await db.streak.findUnique({ where: { userId } });
+  const { data: streak } = await supabase
+    .from("streaks")
+    .select("current_streak")
+    .eq("user_id", userId)
+    .single();
+
   if (!streak) return [];
 
-  const milestones = await db.milestone.findMany({
-    where: { active: true },
-    orderBy: { requiredStreak: "asc" },
-  });
+  const { data: milestones } = await supabase
+    .from("milestones")
+    .select("*")
+    .eq("active", true)
+    .order("required_streak", { ascending: true });
 
-  const claimed = await db.claimedMilestone.findMany({
-    where: { userId },
-  });
+  if (!milestones) return [];
 
-  const claimedIds = new Set(claimed.map((c: { milestoneId: string }) => c.milestoneId));
+  const { data: claimed } = await supabase
+    .from("claimed_milestones")
+    .select("milestone_id")
+    .eq("user_id", userId);
 
-  return milestones.map((m: { id: string; requiredStreak: number; rewardAmount: unknown; currency: string; active: boolean }) => ({
+  const claimedIds = new Set(claimed?.map((c) => c.milestone_id) || []);
+
+  return milestones.map((m) => ({
     ...m,
-    eligible: streak.currentStreak >= m.requiredStreak && !claimedIds.has(m.id),
+    eligible: streak.current_streak >= m.required_streak && !claimedIds.has(m.id),
     claimed: claimedIds.has(m.id),
   }));
 }
 
 export async function claimMilestone(userId: string, milestoneId: string) {
-  if (!db) throw new Error("Database not available");
+  const supabase = await createClient();
 
-  const streak = await db.streak.findUnique({ where: { userId } });
+  const { data: streak } = await supabase
+    .from("streaks")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
   if (!streak) throw new Error("Streak not found");
 
-  const milestone = await db.milestone.findUnique({ where: { id: milestoneId } });
+  const { data: milestone } = await supabase
+    .from("milestones")
+    .select("*")
+    .eq("id", milestoneId)
+    .single();
+
   if (!milestone) throw new Error("Milestone not found");
   if (!milestone.active) throw new Error("Milestone is not active");
-
-  if (streak.currentStreak < milestone.requiredStreak) {
+  if (streak.current_streak < milestone.required_streak) {
     throw new Error("Streak requirement not met");
   }
 
-  const existingClaim = await db.claimedMilestone.findUnique({
-    where: { userId_milestoneId: { userId, milestoneId } },
+  const { data: existingClaim } = await supabase
+    .from("claimed_milestones")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("milestone_id", milestoneId)
+    .limit(1);
+
+  if (existingClaim && existingClaim.length > 0) {
+    throw new Error("Milestone already claimed");
+  }
+
+  await supabase.from("claimed_milestones").insert({
+    user_id: userId,
+    streak_id: streak.id,
+    milestone_id: milestoneId,
   });
-  if (existingClaim) throw new Error("Milestone already claimed");
 
-  return db.$transaction(async (tx: any) => {
-    await tx.claimedMilestone.create({
-      data: {
-        id: uuidv4(),
-        userId,
-        streakId: streak.id,
-        milestoneId,
-      },
+  const { data: wallet } = await supabase
+    .from("wallets")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("currency", "NGN")
+    .single();
+
+  if (wallet) {
+    const newBalance = Number(wallet.balance) + Number(milestone.reward_amount);
+    await supabase
+      .from("wallets")
+      .update({ balance: newBalance, updated_at: new Date().toISOString() })
+      .eq("id", wallet.id);
+
+    await supabase.from("ledger_entries").insert({
+      user_id: userId,
+      amount: Number(milestone.reward_amount),
+      currency: "NGN",
+      direction: "credit",
+      type: "milestone_reward",
+      reference: `MS-${Date.now()}-${uuidv4().slice(0, 6)}`,
+      source: "milestone_claim",
+      status: "completed",
+      metadata: { milestoneId, requiredStreak: milestone.required_streak },
     });
+  }
 
-    const wallet = await tx.wallet.findUnique({
-      where: { userId_currency: { userId, currency: "NGN" } },
-    });
-
-    if (wallet) {
-      const newBalance = Number(wallet.balance) + Number(milestone.rewardAmount);
-      await tx.wallet.update({
-        where: { id: wallet.id },
-        data: { balance: newBalance },
-      });
-
-      await tx.ledgerEntry.create({
-        data: {
-          id: uuidv4(),
-          userId,
-          amount: Number(milestone.rewardAmount),
-          currency: "NGN",
-          direction: "credit",
-          type: "milestone_reward",
-          reference: `MS-${Date.now()}-${uuidv4().slice(0, 6)}`,
-          source: "milestone_claim",
-          status: "completed",
-          metadata: { milestoneId, requiredStreak: milestone.requiredStreak },
-        },
-      });
-    }
-
-    return { success: true, rewardAmount: Number(milestone.rewardAmount) };
-  });
+  return { success: true, rewardAmount: Number(milestone.reward_amount) };
 }
