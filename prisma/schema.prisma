@@ -1,0 +1,472 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid()) 
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  resetToken    String?   @map("reset_token")
+  resetExpires  DateTime? @map("reset_expires")
+  emailVerified DateTime? @map("email_verified")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  profile            UserProfile?
+  streak             Streak?
+  wallets            Wallet[]
+  ledgerEntries      LedgerEntry[]
+  paymentTransactions PaymentTransaction[]
+  paymentProofs      PaymentProof[]
+  withdrawalRequests WithdrawalRequest[]
+  tradingAccount     TradingAccount?
+  notifications      Notification[]
+  aiConversations    AIConversation[]
+  sessions           Session[]
+  supportTickets     SupportTicket[]
+  completions        StreakCompletion[]
+  adminUser          AdminUser?
+  musicActivities    MusicUserActivity[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id                 String   @id @default(uuid()) 
+  userId             String   @unique @map("user_id")
+  fullName           String   @map("full_name")
+  profileImage       String?  @map("profile_image")
+  tiktokUsername     String?  @map("tiktok_username")
+  snapchatUsername   String?  @map("snapchat_username")
+  verificationStatus String   @default("unverified") @map("verification_status")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model Session {
+  id        String   @id @default(uuid()) 
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Streak {
+  id                 String    @id @default(uuid()) 
+  userId             String    @unique @map("user_id")
+  currentStreak      Int       @default(0) @map("current_streak")
+  longestStreak      Int       @default(0) @map("longest_streak")
+  lastCompletionDate DateTime? @map("last_completion_date")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  completions       StreakCompletion[]
+  claimedMilestones ClaimedMilestone[]
+
+  @@map("streaks")
+}
+
+model StreakTask {
+  id           String   @id @default(uuid()) 
+  activityType String   @map("activity_type")
+  dayNumber    Int      @map("day_number")
+  title        String
+  description  String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  completions StreakCompletion[]
+
+  @@map("streak_tasks")
+}
+
+model StreakCompletion {
+  id          String   @id @default(uuid()) 
+  userId      String   @map("user_id")
+  streakId    String   @map("streak_id")
+  taskId      String   @map("task_id")
+  completedAt DateTime @default(now()) @map("completed_at")
+  verified    Boolean  @default(false)
+
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  streak Streak     @relation(fields: [streakId], references: [id], onDelete: Cascade)
+  task   StreakTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, completedAt])
+  @@map("streak_completions")
+}
+
+model Milestone {
+  id             String   @id @default(uuid()) 
+  requiredStreak Int      @map("required_streak")
+  rewardAmount   Decimal  @map("reward_amount") 
+  currency       String   @default("NGN")
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  claimedMilestones ClaimedMilestone[]
+
+  @@map("milestones")
+}
+
+model ClaimedMilestone {
+  id          String   @id @default(uuid()) 
+  userId      String   @map("user_id")
+  streakId    String   @map("streak_id")
+  milestoneId String   @map("milestone_id")
+  claimedAt   DateTime @default(now()) @map("claimed_at")
+
+  streak    Streak    @relation(fields: [streakId], references: [id], onDelete: Cascade)
+  milestone Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, milestoneId])
+  @@map("claimed_milestones")
+}
+
+model Wallet {
+  id        String   @id @default(uuid()) 
+  userId    String   @map("user_id")
+  currency  String   @default("NGN")
+  balance   Decimal  @default(0) 
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, currency])
+  @@map("wallets")
+}
+
+model LedgerEntry {
+  id        String   @id @default(uuid()) 
+  userId    String   @map("user_id")
+  amount    Decimal  
+  currency  String   @default("NGN")
+  direction String
+  type      String
+  reference String   @unique
+  source    String
+  status    String   @default("completed")
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([reference])
+  @@map("wallet_ledger")
+}
+
+model PaymentTransaction {
+  id                String   @id @default(uuid()) 
+  userId            String   @map("user_id")
+  amount            Decimal  
+  currency          String   @default("NGN")
+  provider          String
+  providerReference String?  @map("provider_reference")
+  status            String   @default("pending")
+  metadata          Json?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([providerReference])
+  @@map("payment_transactions")
+}
+
+model PaymentProof {
+  id         String    @id @default(uuid()) 
+  userId     String    @map("user_id")
+  fileUrl    String    @map("file_url")
+  fileName   String    @map("file_name")
+  mimeType   String
+  status     String    @default("pending")
+  reviewedBy String?   @map("reviewed_by")
+  reviewedAt DateTime? @map("reviewed_at")
+  notes      String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("payment_proofs")
+}
+
+model WithdrawalRequest {
+  id            String    @id @default(uuid()) 
+  userId        String    @map("user_id")
+  amount        Decimal   
+  currency      String    @default("NGN")
+  bankName      String    @map("bank_name")
+  accountNumber String    @map("account_number")
+  accountName   String    @map("account_name")
+  reference     String    @unique
+  status        String    @default("requested")
+  reviewedBy    String?   @map("reviewed_by")
+  reviewedAt    DateTime? @map("reviewed_at")
+  paidAt        DateTime? @map("paid_at")
+  metadata      Json?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([reference])
+  @@index([status])
+  @@map("withdrawal_requests")
+}
+
+model TradingAccount {
+  id          String   @id @default(uuid()) 
+  userId      String   @unique @map("user_id")
+  cashBalance Decimal  @default(10000)  @map("cash_balance")
+  totalPnL    Decimal  @default(0)  @map("total_pnl")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positions TradingPosition[]
+  orders    TradingOrder[]
+
+  @@map("trading_accounts")
+}
+
+model TradingPosition {
+  id               String   @id @default(uuid()) 
+  tradingAccountId String   @map("trading_account_id")
+  symbol           String   @default("SPK")
+  quantity         Decimal  
+  averagePrice     Decimal   @map("average_price")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  tradingAccount TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([tradingAccountId, symbol])
+  @@map("trading_positions")
+}
+
+model TradingOrder {
+  id               String    @id @default(uuid()) 
+  tradingAccountId String    @map("trading_account_id")
+  side             String
+  symbol           String    @default("SPK")
+  quantity         Decimal   
+  price            Decimal   
+  status           String    @default("pending")
+  executedAt       DateTime? @map("executed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  tradingAccount TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+
+  @@index([tradingAccountId, createdAt])
+  @@map("trading_orders")
+}
+
+model SPKCandle {
+  id        String   @id @default(uuid()) 
+  timestamp DateTime @default(now())
+  open      Decimal  
+  high      Decimal  
+  low       Decimal  
+  close     Decimal  
+  volume    Decimal  @default(0) 
+  timeframe String   @default("1m")
+
+  @@unique([timestamp, timeframe])
+  @@index([timestamp, timeframe])
+  @@map("spk_candles")
+}
+
+model MarketState {
+  id          String   @id @default(uuid()) 
+  symbol      String   @unique @default("SPK")
+  basePrice   Decimal  @default(1.00)  @map("base_price")
+  currentPrice Decimal @default(1.00)  @map("current_price")
+  volatility  Decimal  @default(0.02) 
+  sentiment   Decimal  @default(0) 
+  lastUpdated DateTime @default(now()) @map("last_updated")
+
+  @@map("market_state")
+}
+
+model Notification {
+  id        String   @id @default(uuid()) 
+  userId    String   @map("user_id")
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model AIConversation {
+  id        String      @id @default(uuid()) 
+  userId    String      @map("user_id")
+  title     String?
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AIMessage[]
+
+  @@index([userId, createdAt])
+  @@map("ai_conversations")
+}
+
+model AIMessage {
+  id             String   @id @default(uuid()) 
+  conversationId String   @map("conversation_id")
+  role           String
+  content        String
+  toolCalls      Json?    @map("tool_calls")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("ai_messages")
+}
+
+model QuizQuestion {
+  id        String   @id @default(uuid()) 
+  question  String
+  options   Json
+  answer    String
+  category  String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  attempts QuizAttempt[]
+
+  @@map("quiz_questions")
+}
+
+model QuizAttempt {
+  id           String   @id @default(uuid()) 
+  userId       String   @map("user_id")
+  questionId   String   @map("question_id")
+  selectedAnswer String @map("selected_answer")
+  correct      Boolean
+  attemptedAt  DateTime @default(now()) @map("attempted_at")
+
+  question QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, attemptedAt])
+  @@map("quiz_attempts")
+}
+
+model SupportTicket {
+  id        String   @id @default(uuid()) 
+  userId    String   @map("user_id")
+  subject   String
+  status    String   @default("open")
+  priority  String   @default("medium")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages SupportMessage[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("support_tickets")
+}
+
+model SupportMessage {
+  id        String   @id @default(uuid()) 
+  ticketId  String   @map("ticket_id")
+  senderId  String   @map("sender_id")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("support_messages")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) 
+  actorId     String   @map("actor_id")
+  actorEmail  String   @map("actor_email")
+  action      String
+  targetId    String?  @map("target_id")
+  targetType  String?  @map("target_type")
+  previousState Json? @map("previous_state")
+  newState    Json?    @map("new_state")
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([actorId, createdAt])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+model AdminUser {
+  id        String   @id @default(uuid()) 
+  userId    String   @unique @map("user_id")
+  role      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admin_users")
+}
+
+model MusicActivity {
+  id          String   @id @default(uuid()) 
+  title       String
+  description String
+  type        String
+  reward      Decimal  
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  userActivities MusicUserActivity[]
+
+  @@map("music_activities")
+}
+
+model MusicUserActivity {
+  id          String   @id @default(uuid()) 
+  userId      String   @map("user_id")
+  activityId  String   @map("activity_id")
+  completedAt DateTime @default(now()) @map("completed_at")
+  rewardEarned Decimal @default(0)  @map("reward_earned")
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity MusicActivity  @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@map("music_user_activities")
+}
+
+model SPKPriceHistory {
+  id        String   @id @default(uuid()) 
+  price     Decimal  
+  timestamp DateTime @default(now()) @map("timestamp")
+
+  @@index([timestamp])
+  @@map("spk_price_history")
+}
