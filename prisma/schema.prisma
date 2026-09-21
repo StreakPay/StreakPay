@@ -29,9 +29,8 @@ model User {
   aiConversations    AIConversation[]
   sessions           Session[]
   supportTickets     SupportTicket[]
-  completions        StreakCompletion[]
-  adminUser          AdminUser?
-  musicActivities    MusicUserActivity[]
+   completions        StreakCompletion[]
+   adminUser          AdminUser?
 
   @@map("users")
 }
@@ -432,34 +431,7 @@ model AdminUser {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("admin_users")
-}
-
-model MusicActivity {
-  id          String   @id @default(uuid()) 
-  title       String
-  description String
-  type        String
-  reward      Decimal  
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  userActivities MusicUserActivity[]
-
-  @@map("music_activities")
-}
-
-model MusicUserActivity {
-  id          String   @id @default(uuid()) 
-  userId      String   @map("user_id")
-  activityId  String   @map("activity_id")
-  completedAt DateTime @default(now()) @map("completed_at")
-  rewardEarned Decimal @default(0)  @map("reward_earned")
-
-  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  activity MusicActivity  @relation(fields: [activityId], references: [id], onDelete: Cascade)
-
-  @@map("music_user_activities")
+   @@map("admin_users")
 }
 
 model SPKPriceHistory {

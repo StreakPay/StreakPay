@@ -4,7 +4,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 const protectedRoutes = [
   "/home",
   "/streak",
-  "/music",
+  "/chat",
   "/trade",
   "/profile",
   "/rewards",

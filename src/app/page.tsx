@@ -2,20 +2,16 @@ import Link from "next/link";
 import {
   Flame,
   Trophy,
-  Music,
+  MessageCircle,
   TrendingUp,
   Bot,
   Shield,
   Zap,
-  CheckCircle,
-  ChevronRight,
   ArrowRight,
-  Star,
   Lock,
   Brain,
   Target,
   Gift,
-  Smartphone,
 } from "lucide-react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { GlassButton } from "@/components/ui/glass-button";
@@ -172,9 +168,9 @@ function FeaturesSection() {
       gradient: "from-gold/20 to-transparent",
     },
     {
-      icon: Music,
-      title: "Music Hub",
-      description: "Discover artists, complete music challenges, and earn rewards through our licensed music platform.",
+      icon: MessageCircle,
+      title: "Social Chat",
+      description: "Connect with friends, send messages, and earn rewards through meaningful conversations.",
       gradient: "from-cyan/20 to-transparent",
     },
     {

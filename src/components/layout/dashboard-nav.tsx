@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Flame, Music, TrendingUp, User } from "lucide-react";
+import { Home, Flame, MessageCircle, TrendingUp, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/home", icon: Home, label: "Home" },
   { href: "/streak", icon: Flame, label: "Streak" },
-  { href: "/music", icon: Music, label: "Music" },
+  { href: "/chat", icon: MessageCircle, label: "Chat" },
   { href: "/trade", icon: TrendingUp, label: "Trade" },
   { href: "/profile", icon: User, label: "Profile" },
 ];

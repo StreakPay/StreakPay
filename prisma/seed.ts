@@ -79,7 +79,6 @@ async function main() {
   await prisma.notification.create({ data: { id: uuidv4(), userId: userA.id, type: "system_announcement", title: "Welcome to StreakPay", message: "Start your streak journey today!", read: false } });
 
   await prisma.ledgerEntry.create({ data: { id: uuidv4(), userId: userA.id, amount: 5000, currency: "NGN", direction: "credit", type: "reward_credit", reference: "milestone-20-day", source: "streak_milestone", status: "completed" } });
-  await prisma.ledgerEntry.create({ data: { id: uuidv4(), userId: userA.id, amount: 7540, currency: "NGN", direction: "credit", type: "reward_credit", reference: "music-activity-1", source: "music_hub", status: "completed" } });
 
   await prisma.marketState.create({ data: { id: uuidv4(), symbol: "SPK", basePrice: 1.0, currentPrice: 1.2847, volatility: 0.02, sentiment: 0.001 } });
 

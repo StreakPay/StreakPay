@@ -6,7 +6,7 @@ const footerSections = [
     links: [
       { label: "Streaks", href: "#features" },
       { label: "Rewards", href: "#features" },
-      { label: "Music Hub", href: "#features" },
+      { label: "Chat", href: "#features" },
       { label: "Trading", href: "#trading" },
       { label: "STREAK AI", href: "#ai" },
     ],

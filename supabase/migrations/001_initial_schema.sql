@@ -619,44 +619,7 @@ CREATE POLICY "Users can check if they are admin"
   USING (auth.uid() = user_id);
 
 -- ============================================================
--- 23. MUSIC ACTIVITIES
--- ============================================================
-CREATE TABLE IF NOT EXISTS music_activities (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title TEXT NOT NULL,
-  description TEXT NOT NULL,
-  type TEXT NOT NULL,
-  reward NUMERIC(12,2) NOT NULL,
-  active BOOLEAN NOT NULL DEFAULT true,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-ALTER TABLE music_activities ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Anyone can view active music activities"
-  ON music_activities FOR SELECT
-  USING (active = true);
-
-CREATE TABLE IF NOT EXISTS music_user_activities (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  activity_id UUID NOT NULL REFERENCES music_activities(id) ON DELETE CASCADE,
-  completed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  reward_earned NUMERIC(12,2) NOT NULL DEFAULT 0
-);
-
-ALTER TABLE music_user_activities ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view own music activities"
-  ON music_user_activities FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own music activities"
-  ON music_user_activities FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
--- ============================================================
--- 24. SPK PRICE HISTORY
+-- 23. SPK PRICE HISTORY
 -- ============================================================
 CREATE TABLE IF NOT EXISTS spk_price_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
