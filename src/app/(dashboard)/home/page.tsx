@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { StreakFire } from "@/components/ui/streak-fire";
 import { GlassButton } from "@/components/ui/glass-button";
+import { StreakPayLoader } from "@/components/ui/streakpay-loader";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import { safeNumber, formatNaira, formatDollar } from "@/lib/math";
@@ -78,7 +79,7 @@ export default function HomePage() {
   if (!data) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-muted text-sm">Loading...</div>
+        <StreakPayLoader />
       </div>
     );
   }
@@ -138,7 +139,7 @@ export default function HomePage() {
             <div className="text-sm text-muted-foreground leading-relaxed">
               {activity?.completed
                 ? "Completed! Come back tomorrow for the next one."
-                : activity?.description || "Loading..."}
+                : activity?.description || "Loading today's activity..."}
             </div>
           </div>
           {!activity?.completed && activity && (

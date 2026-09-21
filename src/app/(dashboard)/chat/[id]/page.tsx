@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { GlassButton } from "@/components/ui/glass-button";
+import { StreakPayLoader } from "@/components/ui/streakpay-loader";
 
 interface Message {
   id: string;
@@ -145,7 +146,7 @@ export default function ConversationPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted">Loading...</div>
+        <StreakPayLoader fullPage={false} />
       </div>
     );
   }

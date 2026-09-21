@@ -5,6 +5,7 @@ import Link from "next/link";
 import { GlassCard } from "@/components/ui/glass-card";
 import { GlassButton } from "@/components/ui/glass-button";
 import { GlassInput } from "@/components/ui/glass-input";
+import { StreakPayLoader } from "@/components/ui/streakpay-loader";
 
 interface Friend {
   id: string;
@@ -218,7 +219,9 @@ export default function ChatPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-muted text-sm">Loading...</div>
+        <div className="flex items-center justify-center py-16 min-h-[200px]">
+          <StreakPayLoader fullPage={false} />
+        </div>
       ) : (
         <>
           {tab === "chats" && (

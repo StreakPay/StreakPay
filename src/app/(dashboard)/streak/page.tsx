@@ -5,6 +5,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { GlassButton } from "@/components/ui/glass-button";
 import { GlassInput } from "@/components/ui/glass-input";
 import { StreakFire } from "@/components/ui/streak-fire";
+import { StreakPayLoader } from "@/components/ui/streakpay-loader";
 import { safeNumber, safeDivide, formatNaira } from "@/lib/math";
 
 interface ActivityContent {
@@ -140,7 +141,7 @@ export default function StreakPage() {
   if (!data) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-muted text-sm">Loading...</div>
+        <StreakPayLoader />
       </div>
     );
   }

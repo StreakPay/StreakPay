@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { GlassButton } from "@/components/ui/glass-button";
 import { Badge } from "@/components/ui/badge";
+import { StreakPayLoader } from "@/components/ui/streakpay-loader";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { Settings, Bell, Shield, MessageCircle, LogOut, ChevronRight } from "lucide-react";
@@ -52,7 +53,7 @@ export default function ProfilePage() {
   if (!data) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-muted text-sm">Loading...</div>
+        <StreakPayLoader />
       </div>
     );
   }
