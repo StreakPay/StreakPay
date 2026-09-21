@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { v4 as uuidv4 } from "uuid";
 import { safeNumber } from "@/lib/math";
+import { creditCoins } from "./coins";
+import { getMultiplier, calculateReward } from "./multiplier";
+import { checkDailyCap, checkRateLimit, getDiminishingReturnsFactor, recordRewardEvent } from "./anti-abuse";
 
 interface ActivityContent {
   type: string;
@@ -24,6 +27,7 @@ interface CompletionResult {
   success: boolean;
   isCorrect: boolean;
   coinsAwarded: number;
+  coinsAwardedSPK: number;
   currentStreak: number;
   longestStreak: number;
   message: string;
@@ -265,6 +269,7 @@ export async function submitActivityResponse(
       success: true,
       isCorrect: false,
       coinsAwarded: 0,
+      coinsAwardedSPK: 0,
       currentStreak: 0,
       longestStreak: 0,
       message: "Incorrect answer. Try again tomorrow to keep your streak!",
@@ -360,7 +365,7 @@ export async function submitActivityResponse(
     streak_day: newStreakCount,
   });
 
-  // Credit wallet
+  // Credit wallet (NGN cash)
   const { data: wallet } = await supabase
     .from("wallets")
     .select("*")
@@ -375,7 +380,6 @@ export async function submitActivityResponse(
       .update({ balance: newBalance, updated_at: new Date().toISOString() })
       .eq("id", wallet.id);
 
-    // Create ledger entry
     await supabase.from("ledger_entries").insert({
       user_id: userId,
       amount: coinsAwarded,
@@ -394,13 +398,50 @@ export async function submitActivityResponse(
     });
   }
 
+  // ---- Award StreakPay Coins ----
+  let coinsAwardedSPK = 0;
+  const rateCheck = await checkRateLimit(userId);
+  const dailyCap = await checkDailyCap(userId);
+
+  if (rateCheck.allowed && dailyCap.allowed) {
+    const [multiplier, dimFactor] = await Promise.all([
+      getMultiplier(userId),
+      getDiminishingReturnsFactor(userId),
+    ]);
+
+    const baseReward = act.reward_coins;
+    const finalReward = calculateReward(baseReward, multiplier.multiplier);
+    const adjustedReward = Math.max(1, Math.floor(finalReward * dimFactor));
+
+    if (adjustedReward > 0) {
+      await creditCoins(
+        userId,
+        adjustedReward,
+        "activity_reward",
+        "daily_activity",
+        `ACT-SPK-${Date.now()}-${uuidv4().slice(0, 6)}`,
+        {
+          assignmentId,
+          activityType: act.activity_type,
+          streakDay: newStreakCount,
+          baseReward,
+          multiplier: multiplier.multiplier,
+          dimFactor,
+        }
+      );
+      coinsAwardedSPK = adjustedReward;
+      await recordRewardEvent(userId, coinsAwardedSPK);
+    }
+  }
+
   return {
     success: true,
     isCorrect: true,
     coinsAwarded,
+    coinsAwardedSPK,
     currentStreak: newStreakCount,
     longestStreak: newLongest,
-    message: `Correct! You earned ${coinsAwarded} coins. Streak: ${newStreakCount} days!`,
+    message: `Correct! You earned ${coinsAwarded} coins + ${coinsAwardedSPK} SPK. Streak: ${newStreakCount} days!`,
   };
 }
 
