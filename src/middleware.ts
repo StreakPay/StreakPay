@@ -23,8 +23,9 @@ export async function middleware(request: NextRequest) {
 
   const supabaseResponse = await updateSession(request);
 
-  // After updateSession, check if we have a valid session by reading the response cookies
-  const hasSessionCookie = supabaseResponse.cookies.getAll().some(
+  // Check session by looking at the request cookies (browser-sent)
+  // updateSession already called getUser() which validated the session
+  const hasSessionCookie = request.cookies.getAll().some(
     (c) => c.name.includes("auth-token")
   );
 
