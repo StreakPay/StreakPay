@@ -5,6 +5,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { GlassButton } from "@/components/ui/glass-button";
 import { GlassInput } from "@/components/ui/glass-input";
 import { safeNumber, safeDivide } from "@/lib/math";
+import { Badge } from "@/components/ui/badge";
 
 interface Candle {
   timestamp: string;
@@ -155,29 +156,23 @@ export default function TradePage() {
     : 0;
 
   return (
-    <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto">
+    <div className="p-5 md:p-8 lg:p-10 max-w-[1100px] mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold">Trading Terminal</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-[10px] px-2 py-0.5 rounded bg-accent/10 text-accent font-medium">
-              SPK — SIMULATED ASSET
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-gold/10 text-gold font-medium">
-              VIRTUAL MONEY ONLY
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 font-medium">
-              NO REAL MONEY
-            </span>
+          <p className="text-muted text-xs uppercase tracking-widest font-medium mb-1.5">Trading Terminal</p>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">SPK / USD</h1>
+          <div className="flex items-center gap-2 mt-2">
+            <Badge variant="accent">SIMULATED</Badge>
+            <Badge variant="muted">VIRTUAL MONEY</Badge>
           </div>
         </div>
         <div className="text-right">
-          <div className="text-3xl font-bold tabular-nums">
+          <div className="text-4xl font-bold tabular-nums tracking-tight">
             ${price.toFixed(4)}
           </div>
           <div
-            className={`text-sm ${priceChange >= 0 ? "text-accent" : "text-error"}`}
+            className={`text-sm font-medium mt-1 ${priceChange >= 0 ? "text-accent" : "text-error"}`}
           >
             {priceChange >= 0 ? "+" : ""}
             {priceChange.toFixed(2)}%
@@ -185,42 +180,42 @@ export default function TradePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Chart / History */}
         <GlassCard variant="elevated" className="lg:col-span-2 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex gap-1">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex gap-1 p-0.5 glass rounded-xl">
               <button
                 onClick={() => handleTabChange("chart")}
-                className={`px-3 py-1 text-xs rounded-lg transition-colors ${
+                className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
                   tradeTab === "chart"
-                    ? "bg-accent/10 text-accent"
-                    : "hover:bg-white/[0.05] text-muted"
+                    ? "bg-accent/15 text-accent"
+                    : "text-muted hover:text-foreground"
                 }`}
               >
                 Chart
               </button>
               <button
                 onClick={() => handleTabChange("history")}
-                className={`px-3 py-1 text-xs rounded-lg transition-colors ${
+                className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
                   tradeTab === "history"
-                    ? "bg-accent/10 text-accent"
-                    : "hover:bg-white/[0.05] text-muted"
+                    ? "bg-accent/15 text-accent"
+                    : "text-muted hover:text-foreground"
                 }`}
               >
-                Trade History
+                History
               </button>
             </div>
             {tradeTab === "chart" && (
-              <div className="flex gap-1">
+              <div className="flex gap-1 p-0.5 glass rounded-xl">
                 {["1m", "5m", "15m", "1h"].map((tf) => (
                   <button
                     key={tf}
                     onClick={() => setTimeframe(tf)}
-                    className={`px-3 py-1 text-xs rounded-lg transition-colors ${
+                    className={`px-3 py-1 text-xs font-medium rounded-lg transition-all duration-200 ${
                       tf === timeframe
-                        ? "bg-accent/10 text-accent"
-                        : "hover:bg-white/[0.05] text-muted"
+                        ? "bg-accent/15 text-accent"
+                        : "text-muted hover:text-foreground"
                     }`}
                   >
                     {tf}
@@ -232,7 +227,7 @@ export default function TradePage() {
 
           {tradeTab === "chart" ? (
             <>
-              <div className="h-64 flex items-end gap-px">
+              <div className="h-56 md:h-64 flex items-end gap-px">
                 {candles.map((c, i) => {
                   const h = Math.max(
                     10,
@@ -246,15 +241,15 @@ export default function TradePage() {
                       style={{
                         height: `${h}%`,
                         background: green
-                          ? "rgba(34, 197, 94, 0.5)"
-                          : "rgba(239, 68, 68, 0.5)",
+                          ? "rgba(34, 197, 94, 0.45)"
+                          : "rgba(239, 68, 68, 0.45)",
                       }}
                       title={`O:${c.open.toFixed(4)} H:${c.high.toFixed(4)} L:${c.low.toFixed(4)} C:${c.close.toFixed(4)}`}
                     />
                   );
                 })}
               </div>
-              <div className="flex justify-between text-xs text-muted mt-2">
+              <div className="flex justify-between text-xs text-muted mt-3">
                 <span>
                   Vol:{" "}
                   {safeNumber(
@@ -269,40 +264,40 @@ export default function TradePage() {
           ) : (
             <div className="max-h-72 overflow-y-auto">
               {history.length === 0 ? (
-                <div className="text-center py-8 text-muted text-sm">
+                <div className="text-center py-10 text-muted text-sm">
                   No trades yet
                 </div>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-muted-foreground text-xs">
-                      <th className="text-left pb-2">Side</th>
-                      <th className="text-right pb-2">Qty</th>
-                      <th className="text-right pb-2">Price</th>
-                      <th className="text-right pb-2">Total</th>
-                      <th className="text-right pb-2">Time</th>
+                    <tr className="text-muted text-[10px] uppercase tracking-widest">
+                      <th className="text-left pb-3 font-medium">Side</th>
+                      <th className="text-right pb-3 font-medium">Qty</th>
+                      <th className="text-right pb-3 font-medium">Price</th>
+                      <th className="text-right pb-3 font-medium">Total</th>
+                      <th className="text-right pb-3 font-medium">Time</th>
                     </tr>
                   </thead>
                   <tbody>
                     {history.map((o) => (
-                      <tr key={o.id} className="border-t border-white/[0.06]">
+                      <tr key={o.id} className="border-t border-white/[0.04]">
                         <td
-                          className={`py-1.5 font-medium ${
+                          className={`py-2.5 font-medium ${
                             o.side === "buy" ? "text-accent" : "text-error"
                           }`}
                         >
                           {o.side.toUpperCase()}
                         </td>
-                        <td className="text-right py-1.5 tabular-nums">
+                        <td className="text-right py-2.5 tabular-nums">
                           {safeNumber(o.quantity).toFixed(2)}
                         </td>
-                        <td className="text-right py-1.5 tabular-nums">
+                        <td className="text-right py-2.5 tabular-nums">
                           ${safeNumber(o.price).toFixed(4)}
                         </td>
-                        <td className="text-right py-1.5 tabular-nums">
+                        <td className="text-right py-2.5 tabular-nums">
                           ${(safeNumber(o.quantity) * safeNumber(o.price)).toFixed(2)}
                         </td>
-                        <td className="text-right py-1.5 text-muted">
+                        <td className="text-right py-2.5 text-muted">
                           {new Date(o.executed_at || o.created_at).toLocaleTimeString()}
                         </td>
                       </tr>
@@ -315,32 +310,26 @@ export default function TradePage() {
         </GlassCard>
 
         {/* Right sidebar */}
-        <div className="space-y-4">
+        <div className="space-y-5">
           {/* Portfolio */}
           <GlassCard variant="elevated" className="p-6">
-            <h3 className="font-semibold mb-4">Your Portfolio</h3>
-            <div className="space-y-3">
+            <h3 className="text-xs text-muted uppercase tracking-widest font-medium mb-4">Portfolio</h3>
+            <div className="space-y-4">
               <div>
-                <div className="text-xs text-muted-foreground">
-                  Portfolio Value
-                </div>
-                <div className="text-xl font-bold tabular-nums">
+                <div className="text-xs text-muted mb-0.5">Total Value</div>
+                <div className="text-2xl font-bold tabular-nums">
                   ${safeNumber(account?.portfolioValue).toFixed(2)}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">
-                  Available Cash
-                </div>
-                <div className="text-lg tabular-nums">
+                <div className="text-xs text-muted mb-0.5">Cash</div>
+                <div className="text-lg font-semibold tabular-nums">
                   ${safeNumber(account?.cashBalance).toFixed(2)}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="text-xs text-muted-foreground">
-                    Realized P&L
-                  </div>
+                  <div className="text-[10px] text-muted uppercase tracking-widest mb-0.5">Realized</div>
                   <div
                     className={`text-sm font-semibold tabular-nums ${
                       safeNumber(account?.realizedPnl) >= 0
@@ -353,9 +342,7 @@ export default function TradePage() {
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">
-                    Unrealized P&L
-                  </div>
+                  <div className="text-[10px] text-muted uppercase tracking-widest mb-0.5">Unrealized</div>
                   <div
                     className={`text-sm font-semibold tabular-nums ${
                       safeNumber(account?.unrealizedPnl) >= 0
@@ -370,23 +357,23 @@ export default function TradePage() {
               </div>
             </div>
             {account?.positions && account.positions.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-white/[0.06]">
-                <div className="text-xs text-muted-foreground mb-2">
-                  SPK Holdings
+              <div className="mt-5 pt-4 border-t border-white/[0.04]">
+                <div className="text-[10px] text-muted uppercase tracking-widest mb-2">
+                  Holdings
                 </div>
                 {account.positions.map((p, i) => (
-                  <div key={i} className="flex justify-between text-sm mb-1">
-                    <span className="tabular-nums">
+                  <div key={i} className="flex justify-between text-sm mb-1.5">
+                    <span className="tabular-nums font-medium">
                       {safeNumber(p.quantity).toFixed(2)} SPK
                     </span>
                     <span className="text-muted tabular-nums">
-                      @${safeNumber(p.averagePrice).toFixed(4)}
+                      @{safeNumber(p.averagePrice).toFixed(4)}
                     </span>
                   </div>
                 ))}
-                <div className="flex justify-between text-xs text-muted mt-1 pt-1 border-t border-white/[0.06]">
+                <div className="flex justify-between text-xs text-muted mt-2 pt-2 border-t border-white/[0.04]">
                   <span>Total</span>
-                  <span className="tabular-nums">
+                  <span className="tabular-nums font-medium">
                     {totalQty.toFixed(2)} SPK
                   </span>
                 </div>
@@ -396,24 +383,24 @@ export default function TradePage() {
 
           {/* Order Form */}
           <GlassCard variant="elevated" className="p-6">
-            <h3 className="font-semibold mb-4">Place Order</h3>
-            <div className="flex gap-2 mb-4">
+            <h3 className="text-xs text-muted uppercase tracking-widest font-medium mb-4">Place Order</h3>
+            <div className="flex gap-2 mb-5">
               <button
                 onClick={() => setSide("buy")}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
                   side === "buy"
                     ? "bg-accent text-black"
-                    : "glass hover:bg-white/[0.05]"
+                    : "glass hover:bg-white/[0.04] text-muted"
                 }`}
               >
                 Buy
               </button>
               <button
                 onClick={() => setSide("sell")}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
                   side === "sell"
                     ? "bg-error text-white"
-                    : "glass hover:bg-white/[0.05]"
+                    : "glass hover:bg-white/[0.04] text-muted"
                 }`}
               >
                 Sell
@@ -428,14 +415,14 @@ export default function TradePage() {
               onChange={(e) => setAmount(e.target.value)}
             />
             {amount && (
-              <div className="text-xs text-muted mt-2">
-                ≈ {safeDivide(parseFloat(amount), price).toFixed(4)} SPK @ $
+              <div className="text-xs text-muted mt-2.5">
+                \u2248 {safeDivide(parseFloat(amount), price).toFixed(4)} SPK @ $
                 {price.toFixed(4)}
               </div>
             )}
             {side === "buy" && amount && (
               <div className="text-xs text-muted mt-1">
-                Remaining after order: $
+                Remaining: $
                 {(
                   safeNumber(account?.cashBalance) - parseFloat(amount || "0")
                 ).toFixed(2)}
@@ -448,10 +435,10 @@ export default function TradePage() {
                 {totalQty.toFixed(2)} SPK
               </div>
             )}
-            {error && <div className="text-xs text-error mt-2">{error}</div>}
+            {error && <div className="text-xs text-error mt-2.5">{error}</div>}
             <GlassButton
               variant={side === "buy" ? "primary" : "danger"}
-              className="w-full mt-4"
+              className="w-full mt-5"
               onClick={executeOrder}
               disabled={loading || !amount}
               glow

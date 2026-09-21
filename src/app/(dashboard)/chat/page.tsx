@@ -188,24 +188,28 @@ export default function ChatPage() {
   ];
 
   return (
-    <div className="min-h-screen p-4 md:p-8 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Chat</h1>
+    <div className="p-5 md:p-8 lg:p-10 max-w-[700px] mx-auto">
+      {/* Header */}
+      <div className="mb-8">
+        <p className="text-muted text-xs uppercase tracking-widest font-medium mb-1.5">Messages</p>
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Chat</h1>
+      </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 p-1 glass rounded-xl overflow-x-auto">
+      <div className="flex gap-1 mb-8 p-1 glass rounded-2xl overflow-x-auto">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex-1 min-w-0 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+            className={`flex-1 min-w-0 px-4 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap ${
               tab === t.key
-                ? "bg-accent/20 text-accent"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-accent/15 text-accent"
+                : "text-muted hover:text-foreground"
             }`}
           >
             {t.label}
             {t.count !== undefined && t.count > 0 && (
-              <span className="ml-1 text-xs bg-accent/30 px-1.5 py-0.5 rounded-full">
+              <span className="ml-1 text-[10px] bg-accent/25 px-1.5 py-0.5 rounded-full">
                 {t.count}
               </span>
             )}
@@ -214,15 +218,14 @@ export default function ChatPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-muted">Loading...</div>
+        <div className="text-center py-16 text-muted text-sm">Loading...</div>
       ) : (
         <>
-          {/* Chats Tab */}
           {tab === "chats" && (
             <div className="space-y-2">
               {conversations.length === 0 ? (
-                <GlassCard className="p-8 text-center">
-                  <p className="text-muted-foreground mb-4">
+                <GlassCard className="p-10 text-center">
+                  <p className="text-muted-foreground mb-5">
                     No conversations yet. Add friends to start chatting!
                   </p>
                   <GlassButton variant="primary" onClick={() => setTab("find")} glow>
@@ -232,8 +235,8 @@ export default function ChatPage() {
               ) : (
                 conversations.map((item) => (
                   <Link key={item.conversation.id} href={`/chat/${item.conversation.id}`}>
-                    <GlassCard hover className="p-4 flex items-center gap-3 mb-2 cursor-pointer">
-                      <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-semibold text-sm shrink-0">
+                    <GlassCard hover className="p-4 flex items-center gap-3 cursor-pointer">
+                      <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent font-semibold text-sm shrink-0">
                         {item.friend.fullName.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -241,11 +244,11 @@ export default function ChatPage() {
                           <span className="font-medium text-sm truncate">
                             {item.friend.fullName}
                           </span>
-                          <span className="text-xs text-muted ml-2 shrink-0">
+                          <span className="text-[10px] text-muted ml-2 shrink-0">
                             {formatTime(item.lastMessage?.createdAt || null)}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mt-0.5">
                           <span className="text-xs text-muted-foreground truncate">
                             {item.lastMessage
                               ? item.lastMessage.content
@@ -257,9 +260,9 @@ export default function ChatPage() {
                             </span>
                           )}
                         </div>
-                        <div className="text-[10px] text-muted mt-1">
+                        <div className="text-[10px] text-muted mt-1.5 font-medium">
                           {item.usage.freeMessagesLeft > 0
-                            ? `FREE MESSAGES LEFT: ${item.usage.freeMessagesLeft}`
+                            ? `${item.usage.freeMessagesLeft} FREE MESSAGES LEFT`
                             : "2 COINS / MESSAGE"}
                         </div>
                       </div>
@@ -270,18 +273,17 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Friends Tab */}
           {tab === "friends" && (
             <div className="space-y-2">
               {friends.length === 0 ? (
-                <GlassCard className="p-8 text-center">
+                <GlassCard className="p-10 text-center">
                   <p className="text-muted-foreground">No friends yet.</p>
                 </GlassCard>
               ) : (
                 friends.map((f) => (
                   <GlassCard key={f.id} className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-semibold text-sm">
+                      <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent font-semibold text-sm">
                         {f.fullName.charAt(0).toUpperCase()}
                       </div>
                       <span className="font-medium text-sm">{f.fullName}</span>
@@ -306,18 +308,17 @@ export default function ChatPage() {
             </div>
           )}
 
-          {/* Requests Tab */}
           {tab === "requests" && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {pendingRequests.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-2">
+                  <h3 className="text-[10px] text-muted uppercase tracking-widest font-medium mb-3">
                     Received ({pendingRequests.length})
                   </h3>
                   {pendingRequests.map((req) => (
                     <GlassCard key={req.id} className="p-4 flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-semibold text-sm">
+                        <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent font-semibold text-sm">
                           {req.sender?.fullName?.charAt(0).toUpperCase() || "?"}
                         </div>
                         <span className="font-medium text-sm">
@@ -347,19 +348,19 @@ export default function ChatPage() {
 
               {sentRequests.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-2">
+                  <h3 className="text-[10px] text-muted uppercase tracking-widest font-medium mb-3">
                     Sent ({sentRequests.length})
                   </h3>
                   {sentRequests.map((req) => (
                     <GlassCard key={req.id} className="p-4 flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-semibold text-sm">
+                        <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent font-semibold text-sm">
                           {req.receiver?.fullName?.charAt(0).toUpperCase() || "?"}
                         </div>
                         <span className="font-medium text-sm">
                           {req.receiver?.fullName || "Unknown"}
                         </span>
-                        <span className="text-xs text-muted">Pending</span>
+                        <span className="text-[10px] text-muted">Pending</span>
                       </div>
                       <GlassButton
                         variant="secondary"
@@ -374,22 +375,20 @@ export default function ChatPage() {
               )}
 
               {pendingRequests.length === 0 && sentRequests.length === 0 && (
-                <GlassCard className="p-8 text-center">
+                <GlassCard className="p-10 text-center">
                   <p className="text-muted-foreground">No pending requests.</p>
                 </GlassCard>
               )}
             </div>
           )}
 
-          {/* Find Tab */}
           {tab === "find" && (
             <div>
-              <div className="flex gap-2 mb-4">
+              <div className="flex gap-2 mb-6">
                 <div className="flex-1">
                   <GlassInput
                     id="search-users"
-                    label="Search users"
-                    placeholder="Type a name..."
+                    placeholder="Search users..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -405,7 +404,7 @@ export default function ChatPage() {
                   {searchResults.map((user) => (
                     <GlassCard key={user.id} className="p-4 flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-semibold text-sm">
+                        <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent font-semibold text-sm">
                           {user.fullName.charAt(0).toUpperCase()}
                         </div>
                         <span className="font-medium text-sm">{user.fullName}</span>
@@ -424,7 +423,7 @@ export default function ChatPage() {
 
               {searchQuery.length >= 2 &&
                 searchResults.length === 0 && (
-                  <GlassCard className="p-8 text-center">
+                  <GlassCard className="p-10 text-center">
                     <p className="text-muted-foreground">No users found.</p>
                   </GlassCard>
                 )}

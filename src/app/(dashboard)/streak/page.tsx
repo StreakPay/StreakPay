@@ -137,7 +137,13 @@ export default function StreakPage() {
     }
   };
 
-  if (!data) return <div className="p-8 text-muted">Loading...</div>;
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted text-sm">Loading...</div>
+      </div>
+    );
+  }
 
   const { streak, activity, milestones } = data;
   const currentStreak = safeNumber(streak.currentStreak);
@@ -154,11 +160,11 @@ export default function StreakPage() {
       case "short_story":
         return (
           <div className="space-y-4">
-            <div className="glass rounded-xl p-4 text-sm leading-relaxed whitespace-pre-line">
+            <div className="glass rounded-2xl p-5 text-sm leading-relaxed whitespace-pre-line">
               {content.story as string}
             </div>
-            <div className="glass rounded-xl p-4">
-              <p className="text-sm font-medium mb-2">{content.completion_prompt as string}</p>
+            <div className="glass rounded-2xl p-5">
+              <p className="text-sm font-medium mb-3">{content.completion_prompt as string}</p>
               <GlassInput
                 id="story-answer"
                 label="Your Answer"
@@ -177,17 +183,17 @@ export default function StreakPage() {
         const options = (content.options as string[]) || [];
         return (
           <div className="space-y-4">
-            <div className="glass rounded-xl p-4">
+            <div className="glass rounded-2xl p-5">
               <p className="font-medium mb-4">{content.question as string}</p>
               <div className="space-y-2">
                 {options.map((opt, i) => (
                   <button
                     key={i}
                     onClick={() => setSelectedOption(opt)}
-                    className={`w-full text-left p-3 rounded-lg text-sm transition-colors ${
+                    className={`w-full text-left p-3.5 rounded-xl text-sm transition-all duration-200 ${
                       selectedOption === opt
-                        ? "bg-accent/20 text-accent border border-accent/30"
-                        : "bg-white/5 hover:bg-white/10 border border-transparent"
+                        ? "bg-accent/15 text-accent border border-accent/25"
+                        : "bg-white/[0.03] hover:bg-white/[0.06] border border-transparent"
                     }`}
                   >
                     {opt}
@@ -202,11 +208,11 @@ export default function StreakPage() {
       case "riddle":
         return (
           <div className="space-y-4">
-            <div className="glass rounded-xl p-4">
+            <div className="glass rounded-2xl p-5">
               <p className="font-medium mb-2">{content.riddle as string}</p>
               <p className="text-xs text-muted">Hint: {content.hint as string}</p>
             </div>
-            <div className="glass rounded-xl p-4">
+            <div className="glass rounded-2xl p-5">
               <GlassInput
                 id="riddle-answer"
                 label="Your Answer"
@@ -226,11 +232,11 @@ export default function StreakPage() {
         const problem = (content.problem as string) || (content.riddle as string) || (content.question as string) || "";
         return (
           <div className="space-y-4">
-            <div className="glass rounded-xl p-4">
+            <div className="glass rounded-2xl p-5">
               <p className="font-medium mb-2">{problem}</p>
               {"hint" in content && <p className="text-xs text-muted">Hint: {content.hint as string}</p>}
             </div>
-            <div className="glass rounded-xl p-4">
+            <div className="glass rounded-2xl p-5">
               <GlassInput
                 id="puzzle-answer"
                 label="Your Answer"
@@ -246,10 +252,10 @@ export default function StreakPage() {
       case "reflection":
         return (
           <div className="space-y-4">
-            <div className="glass rounded-xl p-4">
+            <div className="glass rounded-2xl p-5">
               <p className="font-medium mb-2">{content.prompt as string}</p>
             </div>
-            <div className="glass rounded-xl p-4">
+            <div className="glass rounded-2xl p-5">
               <GlassInput
                 id="reflection-answer"
                 label="Your Reflection"
@@ -265,17 +271,17 @@ export default function StreakPage() {
         const options = (content.options as string[]) || [];
         return (
           <div className="space-y-4">
-            <div className="glass rounded-xl p-4">
+            <div className="glass rounded-2xl p-5">
               <p className="font-medium mb-4">{content.question as string}</p>
               <div className="space-y-2">
                 {options.map((opt, i) => (
                   <button
                     key={i}
                     onClick={() => setSelectedOption(opt)}
-                    className={`w-full text-left p-3 rounded-lg text-sm transition-colors ${
+                    className={`w-full text-left p-3.5 rounded-xl text-sm transition-all duration-200 ${
                       selectedOption === opt
-                        ? "bg-accent/20 text-accent border border-accent/30"
-                        : "bg-white/5 hover:bg-white/10 border border-transparent"
+                        ? "bg-accent/15 text-accent border border-accent/25"
+                        : "bg-white/[0.03] hover:bg-white/[0.06] border border-transparent"
                     }`}
                   >
                     {opt}
@@ -289,7 +295,7 @@ export default function StreakPage() {
 
       default:
         return (
-          <div className="glass rounded-xl p-4">
+          <div className="glass rounded-2xl p-5">
             <p className="text-sm text-muted-foreground">Activity type not supported yet.</p>
           </div>
         );
@@ -298,73 +304,82 @@ export default function StreakPage() {
 
   const getActivityEmoji = (type: string) => {
     const map: Record<string, string> = {
-      short_story: "📖",
-      quiz: "❓",
-      riddle: "🧩",
-      math_challenge: "🔢",
-      logic_puzzle: "🧠",
-      word_puzzle: "📝",
-      trivia: "🏆",
-      reflection: "💭",
-      daily_poll: "📊",
-      pattern_recognition: "🔍",
-      memory_challenge: "🧩",
-      science_question: "🔬",
-      engineering_question: "⚙️",
+      short_story: "\u{1F4D6}",
+      quiz: "\u{2753}",
+      riddle: "\u{1F9E9}",
+      math_challenge: "\u{1F522}",
+      logic_puzzle: "\u{1F9E0}",
+      word_puzzle: "\u{1F4DD}",
+      trivia: "\u{1F3C6}",
+      reflection: "\u{1F4AD}",
+      daily_poll: "\u{1F4CA}",
+      pattern_recognition: "\u{1F50D}",
+      memory_challenge: "\u{1F9E9}",
+      science_question: "\u{1F52C}",
+      engineering_question: "\u{2699}\u{FE0F}",
     };
-    return map[type] || "⭐";
+    return map[type] || "\u{2B50}";
   };
 
   const canSubmit =
     (activity?.content.type === "daily_poll" ? selectedOption.trim() : userResponse.trim()).length > 0;
 
   return (
-    <div className="min-h-screen p-4 md:p-8 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-8">Your Streak</h1>
+    <div className="p-5 md:p-8 lg:p-10 max-w-[700px] mx-auto">
+      {/* Header */}
+      <div className="mb-10">
+        <p className="text-muted text-xs uppercase tracking-widest font-medium mb-1.5">Daily Activity</p>
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Your Streak</h1>
+      </div>
 
-      {/* Streak Stats */}
-      <GlassCard variant="elevated" className={`p-8 text-center mb-8 ${celebrating ? "glow-accent" : "glow-orange"}`}>
-        <StreakFire size="xl" active={!activity?.completed} />
-        <div className={`text-6xl font-bold mt-4 tabular-nums transition-all ${celebrating ? "text-accent scale-110" : ""}`}>
-          {currentStreak}
-        </div>
-        <div className="text-lg text-muted-foreground">DAY STREAK</div>
-        <div className="text-sm text-accent mt-2">
-          {nextMilestone
-            ? `${nextMilestone.requiredStreak - currentStreak} days to next milestone`
-            : currentStreak > 0
-              ? "All milestones reached!"
-              : "Complete your first activity to start!"}
+      {/* Streak Hero */}
+      <GlassCard variant="elevated" className={`p-10 text-center mb-8 relative overflow-hidden ${celebrating ? "glow-accent" : ""}`}>
+        <div className="absolute inset-0 bg-gradient-to-b from-accent/[0.03] to-transparent" />
+        <div className="relative">
+          <StreakFire size="xl" active={!activity?.completed} />
+          <div className={`text-7xl font-bold mt-4 tabular-nums tracking-tighter transition-all ${celebrating ? "text-accent scale-105" : ""}`}>
+            {currentStreak}
+          </div>
+          <div className="text-sm text-muted uppercase tracking-widest mt-2">Day Streak</div>
+          <div className="text-sm text-muted-foreground mt-3">
+            {nextMilestone
+              ? `${nextMilestone.requiredStreak - currentStreak} days to next milestone`
+              : currentStreak > 0
+                ? "All milestones reached!"
+                : "Complete your first activity to start!"}
+          </div>
         </div>
       </GlassCard>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <GlassCard className="p-6 text-center">
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-4 mb-8">
+        <GlassCard className="p-5 text-center">
           <div className="text-3xl font-bold tabular-nums">{currentStreak}</div>
-          <div className="text-sm text-muted-foreground">Current Streak</div>
+          <div className="text-xs text-muted uppercase tracking-widest mt-1">Current</div>
         </GlassCard>
-        <GlassCard className="p-6 text-center">
+        <GlassCard className="p-5 text-center">
           <div className="text-3xl font-bold tabular-nums">{safeNumber(streak.longestStreak)}</div>
-          <div className="text-sm text-muted-foreground">Longest Streak</div>
+          <div className="text-xs text-muted uppercase tracking-widest mt-1">Longest</div>
         </GlassCard>
       </div>
 
       {/* Today's Activity */}
       <GlassCard variant="elevated" className="p-6 mb-8">
-        <h2 className="text-lg font-semibold mb-4">
-          {getActivityEmoji(activity?.activityType || "")} Today&apos;s Activity
-        </h2>
+        <div className="flex items-center gap-2 mb-5">
+          <span className="text-lg">{getActivityEmoji(activity?.activityType || "")}</span>
+          <h2 className="text-base font-semibold">Today&apos;s Activity</h2>
+        </div>
 
         {!activity ? (
           <p className="text-sm text-muted-foreground">Loading today&apos;s activity...</p>
         ) : phase === "intro" ? (
           <div className="space-y-4">
-            <div className="glass rounded-xl p-4">
+            <div className="glass rounded-2xl p-5">
               <div className="font-medium mb-1">{activity.title}</div>
               <div className="text-sm text-muted-foreground">{activity.description}</div>
-              <div className="text-xs text-accent mt-2">+{activity.rewardCoins} coins reward</div>
+              <div className="text-xs text-accent mt-2 font-medium">+{activity.rewardCoins} coins reward</div>
             </div>
-            <GlassButton variant="primary" onClick={handleStart} glow>
+            <GlassButton variant="primary" onClick={handleStart} glow className="w-full">
               Start Activity
             </GlassButton>
           </div>
@@ -376,16 +391,17 @@ export default function StreakPage() {
               onClick={handleSubmit}
               disabled={!canSubmit}
               glow
+              className="w-full"
             >
               Submit Answer
             </GlassButton>
           </div>
         ) : phase === "submitting" ? (
-          <div className="text-center py-8 text-muted">Checking your answer...</div>
+          <div className="text-center py-10 text-muted text-sm">Checking your answer...</div>
         ) : phase === "result" && result ? (
           <div className="space-y-4">
-            <div className={`glass rounded-xl p-6 text-center ${result.isCorrect ? "border-accent/20" : "border-error/20"}`}>
-              <div className="text-4xl mb-2">{result.isCorrect ? "🎉" : "😅"}</div>
+            <div className={`glass rounded-2xl p-8 text-center ${result.isCorrect ? "border-accent/15" : "border-error/15"}`}>
+              <div className="text-5xl mb-3">{result.isCorrect ? "\u{1F389}" : "\u{1F605}"}</div>
               <div className={`text-lg font-semibold ${result.isCorrect ? "text-accent" : "text-error"}`}>
                 {result.isCorrect ? "Correct!" : "Not quite right"}
               </div>
@@ -394,7 +410,7 @@ export default function StreakPage() {
                   +{result.coinsAwarded} coins earned
                 </div>
               )}
-              <p className="text-sm text-muted-foreground mt-2">{result.message}</p>
+              <p className="text-sm text-muted-foreground mt-3">{result.message}</p>
               {!result.isCorrect && "explanation" in activity.content && (
                 <p className="text-xs text-muted mt-2">
                   {String((activity.content as Record<string, unknown>).explanation)}
@@ -407,32 +423,38 @@ export default function StreakPage() {
 
       {/* Milestone Roadmap */}
       <GlassCard className="p-6 mb-8">
-        <h2 className="font-semibold mb-4">Milestone Roadmap</h2>
+        <h2 className="text-base font-semibold mb-5">Milestone Roadmap</h2>
         {milestones.length === 0 ? (
           <p className="text-sm text-muted-foreground">No milestones available yet.</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {milestones.map((m) => {
               const progress = safeDivide(currentStreak, m.requiredStreak) * 100;
               const status = m.claimed ? "claimed" : m.eligible ? "eligible" : "locked";
               return (
-                <div key={m.id} className="flex items-center gap-4">
-                  <div className="text-sm font-mono w-20">{m.requiredStreak}🔥</div>
-                  <div className="flex-1">
-                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-accent to-cyan"
-                        style={{ width: `${Math.min(100, progress)}%` }}
-                      />
+                <div key={m.id}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{m.requiredStreak}🔥</span>
+                      <span className="text-xs text-muted font-medium">{m.requiredStreak}-day streak</span>
                     </div>
+                    <div className="text-sm font-semibold tabular-nums">\u20A6{formatNaira(m.rewardAmount)}</div>
                   </div>
-                  <div className="text-sm font-semibold w-24 text-right">₦{formatNaira(m.rewardAmount)}</div>
-                  <div className={`text-xs px-2 py-0.5 rounded-full ${
-                    status === "claimed" ? "bg-accent/10 text-accent" :
-                    status === "eligible" ? "bg-gold/10 text-gold" :
-                    "bg-white/5 text-muted"
-                  }`}>
-                    {status === "claimed" ? "Claimed" : status === "eligible" ? "Eligible" : "Locked"}
+                  <div className="h-1 bg-white/[0.04] rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-accent to-cyan transition-all duration-500"
+                      style={{ width: `${Math.min(100, progress)}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between mt-1.5">
+                    <span className="text-[10px] text-muted">{Math.round(progress)}%</span>
+                    <span className={`text-[10px] font-medium ${
+                      status === "claimed" ? "text-accent" :
+                      status === "eligible" ? "text-gold" :
+                      "text-muted"
+                    }`}>
+                      {status === "claimed" ? "Claimed" : status === "eligible" ? "Eligible" : "Locked"}
+                    </span>
                   </div>
                 </div>
               );
@@ -443,7 +465,7 @@ export default function StreakPage() {
 
       {/* Streak Calendar */}
       <GlassCard className="p-6">
-        <h2 className="font-semibold mb-4">Streak Calendar</h2>
+        <h2 className="text-base font-semibold mb-5">Streak Calendar</h2>
         <div className="grid grid-cols-7 gap-2">
           {Array.from({ length: 28 }, (_, i) => {
             const dayNum = i + 1;
@@ -452,10 +474,10 @@ export default function StreakPage() {
             return (
               <div
                 key={i}
-                className={`aspect-square rounded-lg flex items-center justify-center text-xs ${
-                  isCompleted ? "bg-accent/20 text-accent" :
-                  isToday ? "bg-gold/20 text-gold ring-1 ring-gold/30" :
-                  "bg-white/5 text-muted"
+                className={`aspect-square rounded-xl flex items-center justify-center text-xs font-medium ${
+                  isCompleted ? "bg-accent/15 text-accent" :
+                  isToday ? "bg-gold/15 text-gold ring-1 ring-gold/25" :
+                  "bg-white/[0.03] text-muted"
                 }`}
               >
                 {dayNum}

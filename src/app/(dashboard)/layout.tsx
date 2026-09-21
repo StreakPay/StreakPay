@@ -4,7 +4,7 @@ import { StreakAI } from "@/components/ai/streak-ai";
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
-      <main className="pb-20 md:pb-0">
+      <main className="md:ml-[220px] pb-24 md:pb-0 min-h-screen">
         {children}
       </main>
       <DashboardNav />

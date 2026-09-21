@@ -15,12 +15,12 @@ const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(
       <div
         ref={ref}
         className={cn(
-          "rounded-2xl border transition-all duration-300",
+          "rounded-2xl transition-all duration-300",
           variant === "default" && "glass",
           variant === "elevated" && "glass-strong",
           variant === "subtle" && "glass-subtle",
           variant === "strong" && "glass-strong border-white/[0.08]",
-          hover && "hover:border-white/[0.1] hover:bg-white/[0.02] cursor-pointer",
+          hover && "hover:border-white/[0.08] hover:bg-white/[0.015] cursor-pointer",
           glow === "accent" && "hover:glow-accent",
           glow === "gold" && "hover:glow-gold",
           glow === "orange" && "hover:glow-orange",

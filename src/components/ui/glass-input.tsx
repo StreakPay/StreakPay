@@ -15,7 +15,7 @@ const GlassInput = forwardRef<HTMLInputElement, GlassInputProps>(
         {label && (
           <label
             htmlFor={id}
-            className="block text-sm font-medium text-muted-foreground mb-1.5"
+            className="block text-xs font-medium text-muted-foreground mb-1.5 tracking-wide uppercase"
           >
             {label}
           </label>
@@ -24,10 +24,10 @@ const GlassInput = forwardRef<HTMLInputElement, GlassInputProps>(
           ref={ref}
           id={id}
           className={cn(
-            "w-full h-10 px-3 rounded-xl glass text-sm text-foreground placeholder:text-muted",
-            "focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50",
+            "w-full h-11 px-4 rounded-xl glass text-sm text-foreground placeholder:text-muted",
+            "focus:outline-none focus:ring-1 focus:ring-accent/25 focus:border-accent/40",
             "transition-all duration-200",
-            error && "border-error/50 focus:ring-error/30",
+            error && "border-error/40 focus:ring-error/25",
             className
           )}
           {...props}

@@ -33,13 +33,20 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-8">Settings</h1>
+    <div className="p-5 md:p-8 lg:p-10 max-w-[700px] mx-auto">
+      {/* Header */}
+      <div className="mb-10">
+        <p className="text-muted text-xs uppercase tracking-widest font-medium mb-1.5">Preferences</p>
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Settings</h1>
+      </div>
 
-      <GlassCard className="p-6 mb-6">
-        <div className="flex items-center gap-3 mb-4">
-          <User className="h-5 w-5 text-accent" />
-          <h2 className="font-semibold">Profile</h2>
+      {/* Profile */}
+      <GlassCard className="p-6 mb-5">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="h-8 w-8 rounded-lg bg-accent/8 flex items-center justify-center">
+            <User className="h-4 w-4 text-accent" />
+          </div>
+          <h2 className="text-sm font-semibold">Profile</h2>
         </div>
         <div className="space-y-4">
           <GlassInput
@@ -69,43 +76,52 @@ export default function SettingsPage() {
             onChange={(e) => setSnapchat(e.target.value)}
           />
           {saved && <p className="text-sm text-accent">Profile saved!</p>}
-          <GlassButton onClick={handleSave} disabled={saving}>
+          <GlassButton onClick={handleSave} disabled={saving} className="w-full">
             {saving ? "Saving..." : "Save Changes"}
           </GlassButton>
         </div>
       </GlassCard>
 
-      <GlassCard className="p-6 mb-6">
-        <div className="flex items-center gap-3 mb-4">
-          <Lock className="h-5 w-5 text-gold" />
-          <h2 className="font-semibold">Security</h2>
+      {/* Security */}
+      <GlassCard className="p-6 mb-5">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="h-8 w-8 rounded-lg bg-gold/8 flex items-center justify-center">
+            <Lock className="h-4 w-4 text-gold" />
+          </div>
+          <h2 className="text-sm font-semibold">Security</h2>
         </div>
         <GlassButton variant="secondary" className="w-full">
           Change Password
         </GlassButton>
       </GlassCard>
 
-      <GlassCard className="p-6 mb-6">
-        <div className="flex items-center gap-3 mb-4">
-          <Bell className="h-5 w-5 text-cyan" />
-          <h2 className="font-semibold">Notifications</h2>
+      {/* Notifications */}
+      <GlassCard className="p-6 mb-5">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="h-8 w-8 rounded-lg bg-cyan/8 flex items-center justify-center">
+            <Bell className="h-4 w-4 text-cyan" />
+          </div>
+          <h2 className="text-sm font-semibold">Notifications</h2>
         </div>
         <div className="space-y-3">
           {["Daily Reminders", "Milestone Alerts", "Withdrawal Updates", "Security Alerts"].map((item) => (
-            <label key={item} className="flex items-center justify-between">
+            <label key={item} className="flex items-center justify-between py-1">
               <span className="text-sm">{item}</span>
-              <input type="checkbox" defaultChecked className="rounded border-white/10 bg-white/5" />
+              <input type="checkbox" defaultChecked className="rounded border-white/10 bg-white/5 accent-accent" />
             </label>
           ))}
         </div>
       </GlassCard>
 
+      {/* Privacy */}
       <GlassCard className="p-6 mb-6">
         <div className="flex items-center gap-3 mb-4">
-          <Shield className="h-5 w-5 text-orange" />
-          <h2 className="font-semibold">Privacy</h2>
+          <div className="h-8 w-8 rounded-lg bg-orange/8 flex items-center justify-center">
+            <Shield className="h-4 w-4 text-orange" />
+          </div>
+          <h2 className="text-sm font-semibold">Privacy</h2>
         </div>
-        <p className="text-sm text-muted-foreground mb-4">
+        <p className="text-sm text-muted-foreground">
           Your TikTok and Snapchat usernames are cosmetic badges only. They are not verified or linked.
         </p>
       </GlassCard>

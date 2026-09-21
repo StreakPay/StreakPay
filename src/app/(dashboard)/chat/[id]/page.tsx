@@ -166,22 +166,22 @@ export default function ConversationPage() {
   return (
     <div className="flex flex-col h-screen max-h-[100dvh]">
       {/* Header */}
-      <div className="shrink-0 p-4 glass-strong border-b border-white/[0.06] flex items-center gap-3">
+      <div className="shrink-0 p-4 glass-strong border-b border-white/[0.04] flex items-center gap-3 safe-area-pt">
         <GlassButton
-          variant="secondary"
+          variant="ghost"
           className="px-2 py-1 text-xs"
           onClick={() => router.push("/chat")}
         >
           ← Back
         </GlassButton>
-        <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center text-accent font-semibold text-sm">
+        <div className="h-9 w-9 rounded-xl bg-accent/10 flex items-center justify-center text-accent font-semibold text-sm shrink-0">
           {friend.fullName.charAt(0).toUpperCase()}
         </div>
         <div className="flex-1">
           <div className="font-medium text-sm">{friend.fullName}</div>
           <div className="text-[10px] text-muted">
             {usage.freeMessagesLeft > 0
-              ? `FREE MESSAGES LEFT: ${usage.freeMessagesLeft}`
+              ? `${usage.freeMessagesLeft} FREE MESSAGES LEFT`
               : "2 COINS / MESSAGE"}
           </div>
         </div>
@@ -227,7 +227,7 @@ export default function ConversationPage() {
       </div>
 
       {/* Input */}
-      <div className="shrink-0 p-4 glass-strong border-t border-white/[0.06] safe-area-pb">
+      <div className="shrink-0 p-4 glass-strong border-t border-white/[0.04] safe-area-pb">
         <div className="flex gap-2 items-end">
           <textarea
             ref={inputRef}
@@ -236,7 +236,7 @@ export default function ConversationPage() {
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             rows={1}
-            className="flex-1 bg-white/5 border border-white/[0.06] rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-accent/30 max-h-32 min-h-[44px]"
+            className="flex-1 bg-white/[0.03] border border-white/[0.05] rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-accent/20 focus:border-accent/40 max-h-32 min-h-[44px] transition-all duration-200"
             style={{ height: "auto" }}
             onInput={(e) => {
               const target = e.target as HTMLTextAreaElement;
@@ -254,7 +254,7 @@ export default function ConversationPage() {
           </GlassButton>
         </div>
         {usage.freeMessagesLeft > 0 && (
-          <div className="text-[10px] text-accent mt-1">
+          <div className="text-[10px] text-accent mt-1.5 font-medium">
             {usage.freeMessagesLeft} free message{usage.freeMessagesLeft !== 1 ? "s" : ""} remaining
           </div>
         )}

@@ -17,16 +17,16 @@ function getNotificationIcon(type: string) {
   switch (type) {
     case "milestone_reached":
     case "reward_credited":
-      return <Gift className="h-5 w-5 text-gold" />;
+      return <Gift className="h-4 w-4 text-gold" />;
     case "streak_warning":
-      return <AlertTriangle className="h-5 w-5 text-orange" />;
+      return <AlertTriangle className="h-4 w-4 text-orange" />;
     case "verification_approved":
-      return <CheckCircle className="h-5 w-5 text-accent" />;
+      return <CheckCircle className="h-4 w-4 text-accent" />;
     case "verification_rejected":
     case "security_alert":
-      return <Shield className="h-5 w-5 text-error" />;
+      return <Shield className="h-4 w-4 text-error" />;
     default:
-      return <Info className="h-5 w-5 text-cyan" />;
+      return <Info className="h-4 w-4 text-cyan" />;
   }
 }
 
@@ -59,30 +59,27 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">Notifications</h1>
-          {unreadCount > 0 && (
-            <span className="bg-accent/20 text-accent text-xs px-2 py-0.5 rounded-full">
-              {unreadCount} new
-            </span>
-          )}
+    <div className="p-5 md:p-8 lg:p-10 max-w-[700px] mx-auto">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
+        <div>
+          <p className="text-muted text-xs uppercase tracking-widest font-medium mb-1.5">Activity</p>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Notifications</h1>
         </div>
         {unreadCount > 0 && (
           <button
             onClick={handleMarkAllRead}
-            className="text-sm text-accent hover:underline"
+            className="text-xs text-accent hover:underline font-medium"
           >
-            Mark all read
+            Mark all read ({unreadCount})
           </button>
         )}
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {notifications.length === 0 ? (
-          <GlassCard className="p-6 text-center">
-            <Bell className="h-8 w-8 text-muted mx-auto mb-2" />
+          <GlassCard className="p-10 text-center">
+            <Bell className="h-8 w-8 text-muted mx-auto mb-3" />
             <p className="text-muted-foreground text-sm">No notifications yet.</p>
           </GlassCard>
         ) : (
@@ -90,17 +87,17 @@ export default function NotificationsPage() {
             <GlassCard
               key={n.id}
               hover
-              className={`p-4 ${!n.read ? "border-accent/20" : ""}`}
+              className={`p-4 ${!n.read ? "border-accent/15" : ""}`}
             >
               <div className="flex items-start gap-3">
                 <div className="mt-0.5">{getNotificationIcon(n.type)}</div>
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-0.5">
                     <h3 className="text-sm font-semibold">{n.title}</h3>
-                    {!n.read && <div className="h-2 w-2 rounded-full bg-accent" />}
+                    {!n.read && <div className="h-1.5 w-1.5 rounded-full bg-accent" />}
                   </div>
                   <p className="text-sm text-muted-foreground">{n.message}</p>
-                  <p className="text-xs text-muted mt-1">{timeAgo(n.createdAt)}</p>
+                  <p className="text-[10px] text-muted mt-1.5">{timeAgo(n.createdAt)}</p>
                 </div>
               </div>
             </GlassCard>
