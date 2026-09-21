@@ -16,14 +16,19 @@ interface Milestone {
   claimed: boolean;
 }
 
+interface TodayActivity {
+  title: string;
+  description: string;
+  completed: boolean;
+  rewardCoins: number;
+}
+
 interface DashboardData {
   streak: { currentStreak: number; longestStreak: number };
-  todayTask: { title: string; description: string; activityType: string };
-  completedToday: boolean;
   wallet: { balance: number; currency: string };
   trading: { cashBalance: number; totalPnl: number; unrealizedPnl: number };
   nextMilestone: { requiredStreak: number; daysRemaining: number } | null;
-  milestones: Milestone[];
+  activity: TodayActivity | null;
 }
 
 export default function HomePage() {
@@ -36,7 +41,8 @@ export default function HomePage() {
       fetch("/api/wallet").then((r) => r.json()),
       fetch("/api/trading/account").then((r) => r.json()),
       fetch("/api/rewards/milestones").then((r) => r.json()),
-    ]).then(([streak, wallet, trading, milestonesData]) => {
+      fetch("/api/activities/today").then((r) => r.json()),
+    ]).then(([streak, wallet, trading, milestonesData, activityData]) => {
       const currentStreak = safeNumber(streak.streak?.currentStreak);
       const longestStreak = safeNumber(streak.streak?.longestStreak);
       const milestones: Milestone[] = milestonesData.milestones || [];
@@ -47,8 +53,6 @@ export default function HomePage() {
 
       setData({
         streak: { currentStreak, longestStreak },
-        todayTask: streak.todayTask || { title: "Daily Engagement", description: "Complete today's engagement activity", activityType: "daily_engagement" },
-        completedToday: streak.completedToday || false,
         wallet: { balance: safeNumber(wallet.balance), currency: wallet.currency || "NGN" },
         trading: {
           cashBalance: safeNumber(trading.account?.cashBalance),
@@ -58,14 +62,21 @@ export default function HomePage() {
         nextMilestone: nextMilestone
           ? { requiredStreak: nextMilestone.requiredStreak, daysRemaining: nextMilestone.requiredStreak - currentStreak }
           : null,
-        milestones,
+        activity: activityData.activity
+          ? {
+              title: activityData.activity.title,
+              description: activityData.activity.description,
+              completed: activityData.activity.completed,
+              rewardCoins: activityData.activity.rewardCoins,
+            }
+          : null,
       });
     });
   }, []);
 
   if (!data) return <div className="p-8 text-muted">Loading...</div>;
 
-  const { streak, wallet, trading, nextMilestone } = data;
+  const { streak, wallet, trading, nextMilestone, activity } = data;
   const portfolioValue = trading.cashBalance + trading.unrealizedPnl;
 
   const getGreeting = () => {
@@ -112,9 +123,9 @@ export default function HomePage() {
 
         <GlassCard variant="elevated" className="p-6">
           <div className="text-xs text-muted-foreground mb-1">Today&apos;s Activity</div>
-          <div className="text-2xl font-bold tabular-nums">{data.completedToday ? "1/1" : "0/1"}</div>
+          <div className="text-2xl font-bold tabular-nums">{activity?.completed ? "1/1" : "0/1"}</div>
           <div className="text-xs text-muted mt-2">
-            {data.completedToday ? "Completed!" : "tasks remaining"}
+            {activity?.completed ? "Completed!" : activity ? "activity remaining" : "Loading..."}
           </div>
         </GlassCard>
       </div>
@@ -122,13 +133,13 @@ export default function HomePage() {
       <GlassCard variant="elevated" className="p-6 mb-8">
         <h2 className="text-lg font-semibold mb-2">Today&apos;s Mission</h2>
         <p className="text-muted-foreground text-sm mb-4">
-          {data.completedToday
-            ? "You've completed today's task. Come back tomorrow!"
-            : data.todayTask.description}
+          {activity?.completed
+            ? "You've completed today's activity. Come back tomorrow!"
+            : activity?.description || "Loading today's activity..."}
         </p>
-        {!data.completedToday && (
+        {!activity?.completed && activity && (
           <Link href="/streak">
-            <GlassButton variant="primary" glow>Start Today&apos;s Task</GlassButton>
+            <GlassButton variant="primary" glow>Start Today&apos;s Activity</GlassButton>
           </Link>
         )}
       </GlassCard>
@@ -156,7 +167,7 @@ export default function HomePage() {
           <h3 className="font-semibold mb-2">✦ STREAK AI Insight</h3>
           <p className="text-sm text-muted-foreground">
             {streak.currentStreak > 0
-              ? `You're on a ${streak.currentStreak}-day streak! ${!data.completedToday ? "Complete today's task to keep it going." : "Great job completing today's task!"}${nextMilestone ? ` You're ${nextMilestone.daysRemaining} days away from your next milestone reward.` : ""}`
+              ? `You're on a ${streak.currentStreak}-day streak! ${!activity?.completed ? "Complete today's activity to keep it going." : "Great job completing today's activity!"}${nextMilestone ? ` You're ${nextMilestone.daysRemaining} days away from your next milestone reward.` : ""}`
               : "Start your streak today! Complete daily activities to earn rewards and build your streak."}
           </p>
         </GlassCard>

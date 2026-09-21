@@ -10,22 +10,11 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: streak } = await supabase
-      .from("streaks")
-      .select("current_streak, longest_streak")
-      .eq("user_id", user.id)
-      .single();
-
     const activity = await getTodayActivity(user.id);
 
-    return NextResponse.json({
-      streak: streak
-        ? { currentStreak: streak.current_streak, longestStreak: streak.longest_streak }
-        : { currentStreak: 0, longestStreak: 0 },
-      completedToday: activity?.completed || false,
-    });
+    return NextResponse.json({ activity });
   } catch (error) {
-    console.error("Get streak error:", error);
+    console.error("Get today activity error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
