@@ -96,7 +96,7 @@ export default function TradePage() {
     fetchData();
     const interval = setInterval(fetchPrice, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [timeframe]);
 
   const executeOrder = async () => {
     if (!amount || parseFloat(amount) <= 0) return;

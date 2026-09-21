@@ -343,6 +343,7 @@ export async function sendMessage(
   const usage = await getOrCreateChatUsage(userId, conversationId);
 
   let coinsCharged = 0;
+  let spendReference = "";
 
   if (usage.freeMessagesLeft > 0) {
     // Free message
@@ -378,13 +379,14 @@ export async function sendMessage(
       .eq("user_id", userId);
 
     // Record transaction
+    spendReference = `CHAT-SPEND-${Date.now()}-${uuidv4().slice(0, 6)}`;
     await supabase.from("coin_transactions").insert({
       user_id: userId,
       amount: -costPerMessage,
       balance_after: newBalance,
       type: "chat_spend",
       source: "chat_message",
-      reference: `CHAT-SPEND-${Date.now()}-${uuidv4().slice(0, 6)}`,
+      reference: spendReference,
       metadata: { conversationId, messageId: null },
     });
 
@@ -420,14 +422,14 @@ export async function sendMessage(
     .update({ last_message_at: new Date().toISOString() })
     .eq("id", conversationId);
 
-  // Update message metadata in chat_usage
-  if (coinsCharged > 0) {
+  // Update message metadata in coin_transactions
+  if (coinsCharged > 0 && message) {
     await supabase
       .from("coin_transactions")
       .update({
-        metadata: { conversationId, messageId: message!.id },
+        metadata: { conversationId, messageId: message.id },
       })
-      .eq("reference", `CHAT-SPEND-${Date.now()}`);
+      .eq("reference", spendReference);
   }
 
   // Award chat reward coins (meaningful chat activity)
@@ -435,14 +437,18 @@ export async function sendMessage(
 
   const updatedUsage = await getOrCreateChatUsage(userId, conversationId);
 
+  if (!message) {
+    throw new Error("Failed to send message");
+  }
+
   return {
     message: {
-      id: message!.id,
-      conversationId: message!.conversation_id,
-      senderId: message!.sender_id,
-      content: message!.content,
-      status: message!.status as "sent",
-      createdAt: message!.created_at,
+      id: message.id,
+      conversationId: message.conversation_id,
+      senderId: message.sender_id,
+      content: message.content,
+      status: message.status as "sent",
+      createdAt: message.created_at,
     },
     coinsCharged,
     freeMessagesLeft: updatedUsage.freeMessagesLeft,

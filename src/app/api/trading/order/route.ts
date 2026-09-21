@@ -25,13 +25,21 @@ export async function POST(request: Request) {
     const { side, quantity, price } = parsed.data;
     const order = await placeOrder(user.id, side, quantity, price);
 
+    if (!order) {
+      return NextResponse.json(
+        { error: "Failed to place order" },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({ success: true, order });
   } catch (error: unknown) {
     console.error("Place order error:", error);
     const message = error instanceof Error ? error.message : "Internal server error";
+    const isUserError = message.includes("Insufficient") || message.includes("Invalid") || message.includes("not found");
     return NextResponse.json(
       { error: message },
-      { status: 400 }
+      { status: isUserError ? 400 : 500 }
     );
   }
 }

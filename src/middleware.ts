@@ -23,17 +23,19 @@ export async function middleware(request: NextRequest) {
 
   const supabaseResponse = await updateSession(request);
 
-  // Check session by looking at the request cookies (browser-sent)
-  // updateSession already called getUser() which validated the session
+  // updateSession calls getUser() which validates the session server-side.
+  // We check for session cookies (set by Supabase after getUser refreshes tokens).
+  // The cookie name check is a lightweight gate; getUser() in updateSession already
+  // validated the JWT and refreshed tokens if needed.
   const hasSessionCookie = request.cookies.getAll().some(
-    (c) => c.name.includes("auth-token")
+    (c) => c.name.startsWith("sb-") && c.name.includes("auth-token")
   );
 
-  const isProtectedRoute = protectedRoutes.some((route) =>
-    pathname.startsWith(route)
+  const isProtectedRoute = protectedRoutes.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
   );
-  const isAuthRoute = authRoutes.some((route) =>
-    pathname.startsWith(route)
+  const isAuthRoute = authRoutes.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
   );
 
   if (isProtectedRoute && !hasSessionCookie) {

@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { generateNewCandle } from "@/services/trading";
+
+const VALID_TIMEFRAMES = ["1m", "5m", "15m", "1h"];
 
 /**
  * Market simulation endpoint.
@@ -8,8 +11,21 @@ import { generateNewCandle } from "@/services/trading";
  */
 export async function POST(request: Request) {
   try {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json().catch(() => ({}));
     const timeframe = body.timeframe || "1m";
+
+    if (!VALID_TIMEFRAMES.includes(timeframe)) {
+      return NextResponse.json(
+        { error: "Invalid timeframe" },
+        { status: 400 }
+      );
+    }
 
     const candle = await generateNewCandle(timeframe);
 

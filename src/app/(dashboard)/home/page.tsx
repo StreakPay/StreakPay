@@ -38,13 +38,18 @@ export default function HomePage() {
   const [data, setData] = useState<DashboardData | null>(null);
 
   useEffect(() => {
-    Promise.all([
+    Promise.allSettled([
       fetch("/api/streak").then((r) => r.json()),
       fetch("/api/wallet").then((r) => r.json()),
       fetch("/api/trading/account").then((r) => r.json()),
       fetch("/api/rewards/milestones").then((r) => r.json()),
       fetch("/api/activities/today").then((r) => r.json()),
-    ]).then(([streak, wallet, trading, milestonesData, activityData]) => {
+    ]).then((results) => {
+      const streak = results[0].status === "fulfilled" ? results[0].value : {};
+      const wallet = results[1].status === "fulfilled" ? results[1].value : {};
+      const trading = results[2].status === "fulfilled" ? results[2].value : {};
+      const milestonesData = results[3].status === "fulfilled" ? results[3].value : {};
+      const activityData = results[4].status === "fulfilled" ? results[4].value : {};
       const currentStreak = safeNumber(streak.streak?.currentStreak);
       const longestStreak = safeNumber(streak.streak?.longestStreak);
       const milestones: Milestone[] = milestonesData.milestones || [];

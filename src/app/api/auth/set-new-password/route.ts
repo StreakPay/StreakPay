@@ -21,6 +21,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+      return NextResponse.json(
+        { error: "Password must contain uppercase, lowercase, and a number." },
+        { status: 400 }
+      );
+    }
+
     const { error } = await supabase.auth.updateUser({
       password,
     });

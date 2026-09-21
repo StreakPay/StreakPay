@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     const conversationId = searchParams.get("conversationId");
 
     if (conversationId) {
-      const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100);
+      const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "50", 10) || 50, 1), 100);
       const before = searchParams.get("before") || undefined;
 
       const messages = await getMessages(user.id, conversationId, limit, before);
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal server error";
     console.error("Chat GET error:", error);
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -53,6 +53,6 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal server error";
     console.error("Chat POST error:", error);
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

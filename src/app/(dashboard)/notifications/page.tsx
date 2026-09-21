@@ -49,6 +49,10 @@ export default function NotificationsPage() {
       .then((data) => {
         setNotifications(data.notifications || []);
         setUnreadCount(data.unreadCount || 0);
+      })
+      .catch(() => {
+        setNotifications([]);
+        setUnreadCount(0);
       });
   }, []);
 

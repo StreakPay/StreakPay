@@ -96,6 +96,7 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal server error";
     console.error("Friends POST error:", error);
-    return NextResponse.json({ error: message }, { status: 400 });
+    const isUserError = message.includes("already") || message.includes("not found") || message.includes("required") || message.includes("yourself");
+    return NextResponse.json({ error: message }, { status: isUserError ? 400 : 500 });
   }
 }

@@ -100,6 +100,20 @@ export class PaymentService {
     return hash === signature;
   }
 
+  verifyWebhookSignatureSafe(payload: string, signature: string): boolean {
+    if (this.provider === "manual") return true;
+
+    const crypto = require("crypto");
+    const hash = crypto
+      .createHmac("sha512", this.webhookSecret)
+      .update(payload)
+      .digest("hex");
+
+    // Use timing-safe comparison to prevent timing attacks
+    if (hash.length !== signature.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(signature));
+  }
+
   async processWebhook(payload: WebhookPayload): Promise<void> {
     const supabase = await createClient();
 
@@ -119,7 +133,7 @@ export class PaymentService {
         await supabase
           .from("profiles")
           .update({ verification_status: "verified" })
-          .eq("user_id", transaction.user_id);
+          .eq("id", transaction.user_id);
       }
     }
   }

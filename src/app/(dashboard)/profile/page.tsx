@@ -47,7 +47,13 @@ export default function ProfilePage() {
   useEffect(() => {
     fetch("/api/profile")
       .then((r) => r.json())
-      .then(setData);
+      .then(setData)
+      .catch(() => setData({
+        user: { id: "", email: "", createdAt: new Date().toISOString() },
+        profile: null,
+        streak: null,
+        wallet: null,
+      }));
   }, []);
 
   if (!data) {

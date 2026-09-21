@@ -216,7 +216,7 @@ export default function ConversationPage() {
                   </span>
                   {isOwn && (
                     <span className="text-[10px] text-muted">
-                      {msg.status === "read" ? "✓✓" : msg.status === "delivered" ? "✓✓" : "✓"}
+                      {msg.status === "read" ? "✓✓✓" : msg.status === "delivered" ? "✓✓" : "✓"}
                     </span>
                   )}
                 </div>

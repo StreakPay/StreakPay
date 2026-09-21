@@ -5,10 +5,12 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { GlassInput } from "@/components/ui/glass-input";
 import { GlassButton } from "@/components/ui/glass-button";
 import { useAuth } from "@/hooks/use-auth";
+import { useRouter } from "next/navigation";
 import { User, Lock, Bell, Shield, LogOut } from "lucide-react";
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const [fullName, setFullName] = useState(user?.fullName || "");
   const [tiktok, setTiktok] = useState("");
   const [snapchat, setSnapchat] = useState("");
@@ -126,7 +128,7 @@ export default function SettingsPage() {
         </p>
       </GlassCard>
 
-      <GlassButton variant="danger" className="w-full" onClick={logout}>
+      <GlassButton variant="danger" className="w-full" onClick={async () => { await logout(); router.push("/login"); }}>
         <LogOut className="h-4 w-4" />
         Sign Out
       </GlassButton>

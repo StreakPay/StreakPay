@@ -55,8 +55,7 @@ export async function searchUsers(
       .from("friend_requests")
       .select("sender_id, receiver_id")
       .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-      .in("sender_id", ids)
-      .in("receiver_id", ids),
+      .or(`sender_id.in.(${ids.join(",")}),receiver_id.in.(${ids.join(",")})`),
     supabase
       .from("friendships")
       .select("user_id_1, user_id_2")

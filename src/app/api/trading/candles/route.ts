@@ -5,7 +5,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const timeframe = searchParams.get("timeframe") || "1m";
-    const limit = parseInt(searchParams.get("limit") || "50");
+    const limit = Math.max(parseInt(searchParams.get("limit") || "50", 10) || 50, 1);
 
     const candles = await getCandles(timeframe, limit);
 
