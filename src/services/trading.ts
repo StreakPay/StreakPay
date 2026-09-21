@@ -24,8 +24,10 @@ function generateCandle(
   const sentimentBias = SENTIMENT * previousClose;
   const open = previousClose;
   const close = Math.max(0.01, open + change + sentimentBias);
-  const high = Math.max(open, close) + Math.random() * VOLATILITY * previousClose * 0.5;
-  const low = Math.min(open, close) - Math.random() * VOLATILITY * previousClose * 0.5;
+  const high =
+    Math.max(open, close) + Math.random() * VOLATILITY * previousClose * 0.5;
+  const low =
+    Math.min(open, close) - Math.random() * VOLATILITY * previousClose * 0.5;
   const volume = Math.floor(Math.random() * 10000) + 1000;
 
   return {
@@ -40,7 +42,7 @@ function generateCandle(
   };
 }
 
-export async function getCurrentPrice() {
+export async function getCurrentPrice(): Promise<number> {
   const supabase = await createClient();
 
   const { data: marketState } = await supabase
@@ -61,7 +63,9 @@ export async function getCurrentPrice() {
     return BASE_PRICE;
   }
 
-  return Number(marketState.current_price);
+  const price = Number(marketState.current_price);
+  if (!Number.isFinite(price) || price <= 0) return BASE_PRICE;
+  return price;
 }
 
 export async function generateNewCandle(timeframe: string = "1m") {
@@ -95,11 +99,14 @@ export async function getCandles(timeframe: string = "1m", limit: number = 50) {
     .select("*")
     .eq("timeframe", timeframe)
     .order("timestamp", { ascending: false })
-    .limit(limit);
+    .limit(Math.min(limit, 200));
 
   return data || [];
 }
 
+/**
+ * Place a buy or sell order. All validation is server-side.
+ */
 export async function placeOrder(
   userId: string,
   side: "buy" | "sell",
@@ -108,10 +115,30 @@ export async function placeOrder(
 ) {
   const supabase = await createClient();
 
-  const currentPrice = await getCurrentPrice();
-  const executionPrice = price || currentPrice;
-  const totalCost = quantity * executionPrice;
+  // ---- Server-side input validation ----
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    throw new Error("Invalid quantity");
+  }
 
+  // Round to 4 decimal places
+  const qty = Math.round(quantity * 10000) / 10000;
+
+  const currentPrice = await getCurrentPrice();
+  const executionPrice =
+    price && Number.isFinite(price) && price > 0
+      ? Math.round(price * 10000) / 10000
+      : currentPrice;
+
+  if (!Number.isFinite(executionPrice) || executionPrice <= 0) {
+    throw new Error("Invalid price");
+  }
+
+  const totalCost = qty * executionPrice;
+  if (!Number.isFinite(totalCost) || totalCost <= 0) {
+    throw new Error("Invalid order total");
+  }
+
+  // ---- Fetch account ----
   const { data: account, error: accountError } = await supabase
     .from("trading_accounts")
     .select("*")
@@ -120,14 +147,27 @@ export async function placeOrder(
 
   if (accountError || !account) throw new Error("Trading account not found");
 
+  const cashBalance = safeNumber(account.cash_balance);
+  const totalPnl = safeNumber(account.total_pnl);
+  const realizedPnl = safeNumber(account.realized_pnl);
+
   if (side === "buy") {
-    if (Number(account.cash_balance) < totalCost) {
+    // ---- BUY validation ----
+    if (cashBalance < totalCost) {
+      throw new Error("Insufficient balance");
+    }
+
+    const newCashBalance = Math.round((cashBalance - totalCost) * 100) / 100;
+    if (newCashBalance < 0) {
       throw new Error("Insufficient balance");
     }
 
     await supabase
       .from("trading_accounts")
-      .update({ cash_balance: Number(account.cash_balance) - totalCost })
+      .update({
+        cash_balance: newCashBalance,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", account.id);
 
     const { data: existingPosition } = await supabase
@@ -138,26 +178,33 @@ export async function placeOrder(
       .single();
 
     if (existingPosition) {
-      const totalQuantity = Number(existingPosition.quantity) + quantity;
+      const prevQty = safeNumber(existingPosition.quantity);
+      const prevAvg = safeNumber(existingPosition.average_price);
+      const totalQuantity = prevQty + qty;
       const avgPrice =
-        (Number(existingPosition.average_price) * Number(existingPosition.quantity) +
-          executionPrice * quantity) /
-        totalQuantity;
+        totalQuantity > 0
+          ? (prevAvg * prevQty + executionPrice * qty) / totalQuantity
+          : executionPrice;
 
       await supabase
         .from("trading_positions")
-        .update({ quantity: totalQuantity, average_price: avgPrice })
+        .update({
+          quantity: Math.round(totalQuantity * 10000) / 10000,
+          average_price: Math.round(avgPrice * 10000) / 10000,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", existingPosition.id);
     } else {
       await supabase.from("trading_positions").insert({
         id: uuidv4(),
         trading_account_id: account.id,
         symbol: "SPK",
-        quantity,
+        quantity: qty,
         average_price: executionPrice,
       });
     }
   } else {
+    // ---- SELL validation ----
     const { data: position } = await supabase
       .from("trading_positions")
       .select("*")
@@ -165,27 +212,39 @@ export async function placeOrder(
       .eq("symbol", "SPK")
       .single();
 
-    if (!position || Number(position.quantity) < quantity) {
+    const positionQty = position ? safeNumber(position.quantity) : 0;
+
+    if (positionQty < qty) {
       throw new Error("Insufficient position");
     }
 
-    const newQuantity = Number(position.quantity) - quantity;
-    const pnl = (executionPrice - Number(position.average_price)) * quantity;
+    const avgPrice = position ? safeNumber(position.average_price) : 0;
+    const pnl = (executionPrice - avgPrice) * qty;
+    const newQuantity = Math.round((positionQty - qty) * 10000) / 10000;
 
     if (newQuantity === 0) {
-      await supabase.from("trading_positions").delete().eq("id", position.id);
+      await supabase.from("trading_positions").delete().eq("id", position!.id);
     } else {
       await supabase
         .from("trading_positions")
-        .update({ quantity: newQuantity })
-        .eq("id", position.id);
+        .update({
+          quantity: newQuantity,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", position!.id);
     }
+
+    const proceeds = Math.round(totalCost * 100) / 100;
+    const newCash = Math.round((cashBalance + proceeds) * 100) / 100;
+    const roundedPnl = Math.round(pnl * 100) / 100;
 
     await supabase
       .from("trading_accounts")
       .update({
-        cash_balance: Number(account.cash_balance) + totalCost,
-        total_pnl: Number(account.total_pnl) + pnl,
+        cash_balance: newCash,
+        realized_pnl: Math.round((realizedPnl + roundedPnl) * 100) / 100,
+        total_pnl: Math.round((totalPnl + roundedPnl) * 100) / 100,
+        updated_at: new Date().toISOString(),
       })
       .eq("id", account.id);
   }
@@ -197,7 +256,7 @@ export async function placeOrder(
       trading_account_id: account.id,
       side,
       symbol: "SPK",
-      quantity,
+      quantity: qty,
       price: executionPrice,
       status: "filled",
       executed_at: new Date().toISOString(),
@@ -208,6 +267,9 @@ export async function placeOrder(
   return order;
 }
 
+/**
+ * Get user's trading account with enriched positions and stats.
+ */
 export async function getTradingAccount(userId: string) {
   const supabase = await createClient();
 
@@ -229,37 +291,44 @@ export async function getTradingAccount(userId: string) {
     .select("*")
     .eq("trading_account_id", account.id)
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(50);
 
   const currentPrice = await getCurrentPrice();
 
   const enrichedPositions = (positions as TradingPosition[] || []).map((p) => {
     const qty = safeNumber(p.quantity);
     const avgPrice = safeNumber(p.average_price);
+    const unrealized = (currentPrice - avgPrice) * qty;
     return {
       id: p.id,
       symbol: p.symbol,
       quantity: qty,
       averagePrice: avgPrice,
-      currentPrice: currentPrice,
-      unrealizedPnl: (currentPrice - avgPrice) * qty,
+      currentPrice,
+      unrealizedPnl: Math.round(unrealized * 100) / 100,
+      marketValue: Math.round(qty * currentPrice * 100) / 100,
     };
   });
 
   const cashBalance = safeNumber(account.cash_balance);
-  const portfolioValue =
-    cashBalance +
-    enrichedPositions.reduce(
-      (sum, p) => sum + p.quantity * currentPrice,
-      0
-    );
-  const totalPnl = safeNumber(account.total_pnl);
+  const positionValue = enrichedPositions.reduce(
+    (sum, p) => sum + p.quantity * currentPrice,
+    0
+  );
+  const portfolioValue = cashBalance + positionValue;
+  const realizedPnl = safeNumber(account.realized_pnl);
+  const unrealizedPnl = enrichedPositions.reduce(
+    (sum, p) => sum + p.unrealizedPnl,
+    0
+  );
 
   return {
     id: account.id,
-    cashBalance,
-    portfolioValue,
-    totalPnl,
+    cashBalance: Math.round(cashBalance * 100) / 100,
+    portfolioValue: Math.round(portfolioValue * 100) / 100,
+    positionValue: Math.round(positionValue * 100) / 100,
+    realizedPnl: Math.round(realizedPnl * 100) / 100,
+    unrealizedPnl: Math.round(unrealizedPnl * 100) / 100,
     positions: enrichedPositions,
     orders: orders || [],
   };
