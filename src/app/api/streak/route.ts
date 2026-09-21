@@ -30,7 +30,9 @@ export async function GET() {
       .single();
 
     return NextResponse.json({
-      streak: streak || { current_streak: 0, longest_streak: 0 },
+      streak: streak
+        ? { currentStreak: streak.current_streak, longestStreak: streak.longest_streak }
+        : { currentStreak: 0, longestStreak: 0 },
       todayTask,
       completedToday: !!todayCompletion,
     });

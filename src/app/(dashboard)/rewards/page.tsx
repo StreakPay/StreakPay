@@ -6,6 +6,7 @@ import { GlassButton } from "@/components/ui/glass-button";
 import { Badge } from "@/components/ui/badge";
 import { StreakFire } from "@/components/ui/streak-fire";
 import { Gift, CheckCircle } from "lucide-react";
+import { safeDivide, formatNaira } from "@/lib/math";
 
 interface Milestone {
   id: string;
@@ -70,61 +71,70 @@ export default function RewardsPage() {
           <h2 className="text-lg font-semibold">Reward Wallet</h2>
         </div>
         <div className="text-4xl font-bold text-gold tabular-nums mb-1">
-          ₦{(wallet?.balance || 0).toLocaleString()}
+          ₦{formatNaira(wallet?.balance)}
         </div>
         <p className="text-sm text-muted-foreground">{claimedCount} milestones claimed</p>
       </GlassCard>
 
       <h2 className="font-semibold mb-4">Milestone Roadmap</h2>
-      <div className="space-y-4 mb-8">
-        {milestones.map((m) => (
-          <GlassCard key={m.id} className={`p-6 ${m.claimed ? "border-accent/20" : ""}`}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <StreakFire size="sm" active={m.claimed} />
-                <div>
-                  <div className="font-semibold">{m.requiredStreak}-Day Streak</div>
-                  <div className="text-sm text-muted-foreground">Milestone</div>
+      {milestones.length === 0 ? (
+        <GlassCard className="p-6 text-center">
+          <p className="text-muted-foreground text-sm">No milestones available yet. Complete tasks to earn rewards!</p>
+        </GlassCard>
+      ) : (
+        <div className="space-y-4 mb-8">
+          {milestones.map((m) => {
+            const progress = safeDivide(currentStreak, m.requiredStreak) * 100;
+            return (
+              <GlassCard key={m.id} className={`p-6 ${m.claimed ? "border-accent/20" : ""}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <StreakFire size="sm" active={m.claimed} />
+                    <div>
+                      <div className="font-semibold">{m.requiredStreak}-Day Streak</div>
+                      <div className="text-sm text-muted-foreground">Milestone</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xl font-bold text-gold tabular-nums">
+                      ₦{formatNaira(m.rewardAmount)}
+                    </div>
+                    {m.claimed ? (
+                      <Badge variant="accent">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Claimed
+                      </Badge>
+                    ) : m.eligible ? (
+                      <GlassButton
+                        size="sm"
+                        variant="primary"
+                        glow
+                        onClick={() => handleClaim(m.id)}
+                        disabled={claiming === m.id}
+                      >
+                        {claiming === m.id ? "Claiming..." : "Claim"}
+                      </GlassButton>
+                    ) : (
+                      <Badge variant="muted">Locked</Badge>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="text-right">
-                <div className="text-xl font-bold text-gold tabular-nums">
-                  ₦{Number(m.rewardAmount).toLocaleString()}
+                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-orange to-gold"
+                    style={{ width: `${Math.min(100, progress)}%` }}
+                  />
                 </div>
-                {m.claimed ? (
-                  <Badge variant="accent">
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    Claimed
-                  </Badge>
-                ) : m.eligible ? (
-                  <GlassButton
-                    size="sm"
-                    variant="primary"
-                    glow
-                    onClick={() => handleClaim(m.id)}
-                    disabled={claiming === m.id}
-                  >
-                    {claiming === m.id ? "Claiming..." : "Claim"}
-                  </GlassButton>
-                ) : (
-                  <Badge variant="muted">Locked</Badge>
-                )}
-              </div>
-            </div>
-            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-orange to-gold"
-                style={{ width: `${Math.min(100, (currentStreak / m.requiredStreak) * 100)}%` }}
-              />
-            </div>
-            <div className="text-xs text-muted mt-1">
-              {m.claimed
-                ? "Completed"
-                : `${currentStreak}/${m.requiredStreak} days (${Math.round((currentStreak / m.requiredStreak) * 100)}%)`}
-            </div>
-          </GlassCard>
-        ))}
-      </div>
+                <div className="text-xs text-muted mt-1">
+                  {m.claimed
+                    ? "Completed"
+                    : `${currentStreak}/${m.requiredStreak} days (${Math.round(progress)}%)`}
+                </div>
+              </GlassCard>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

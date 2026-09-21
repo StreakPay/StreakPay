@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { v4 as uuidv4 } from "uuid";
+import { safeNumber } from "@/lib/math";
 
 interface TradingPosition {
   id: string;
@@ -232,24 +233,34 @@ export async function getTradingAccount(userId: string) {
 
   const currentPrice = await getCurrentPrice();
 
-  const enrichedPositions = (positions as TradingPosition[] || []).map((p) => ({
-    ...p,
-    current_price: currentPrice,
-    unrealized_pnl: (currentPrice - Number(p.average_price)) * Number(p.quantity),
-  }));
+  const enrichedPositions = (positions as TradingPosition[] || []).map((p) => {
+    const qty = safeNumber(p.quantity);
+    const avgPrice = safeNumber(p.average_price);
+    return {
+      id: p.id,
+      symbol: p.symbol,
+      quantity: qty,
+      averagePrice: avgPrice,
+      currentPrice: currentPrice,
+      unrealizedPnl: (currentPrice - avgPrice) * qty,
+    };
+  });
 
+  const cashBalance = safeNumber(account.cash_balance);
   const portfolioValue =
-    Number(account.cash_balance) +
+    cashBalance +
     enrichedPositions.reduce(
-      (sum, p) => sum + Number(p.quantity) * currentPrice,
+      (sum, p) => sum + p.quantity * currentPrice,
       0
     );
+  const totalPnl = safeNumber(account.total_pnl);
 
   return {
-    ...account,
+    id: account.id,
+    cashBalance,
+    portfolioValue,
+    totalPnl,
     positions: enrichedPositions,
     orders: orders || [],
-    portfolio_value: portfolioValue,
-    total_pnl: Number(account.total_pnl),
   };
 }

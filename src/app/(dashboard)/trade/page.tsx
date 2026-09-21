@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { GlassCard } from "@/components/ui/glass-card";
 import { GlassButton } from "@/components/ui/glass-button";
 import { GlassInput } from "@/components/ui/glass-input";
+import { safeNumber, safeDivide } from "@/lib/math";
 
 interface Candle {
   timestamp: string;
@@ -97,7 +98,7 @@ export default function TradePage() {
   };
 
   const priceChange = candles.length >= 2
-    ? ((candles[candles.length - 1].close - candles[0].open) / candles[0].open) * 100
+    ? safeDivide(candles[candles.length - 1].close - candles[0].open, candles[0].open) * 100
     : 0;
 
   return (
@@ -135,7 +136,7 @@ export default function TradePage() {
           </div>
           <div className="h-64 flex items-end gap-px">
             {candles.map((c, i) => {
-              const h = Math.max(10, ((c.high - c.low) / (c.high || 1)) * 100);
+              const h = Math.max(10, safeDivide(c.high - c.low, c.high) * 100);
               const green = c.close >= c.open;
               return (
                 <div
@@ -151,8 +152,8 @@ export default function TradePage() {
             })}
           </div>
           <div className="flex justify-between text-xs text-muted mt-2">
-            <span>Vol: {candles[candles.length - 1]?.volume?.toLocaleString() || 0}</span>
-            <span>Last: ${candles[candles.length - 1]?.close?.toFixed(4) || "0.0000"}</span>
+            <span>Vol: {safeNumber(candles[candles.length - 1]?.volume).toLocaleString()}</span>
+            <span>Last: ${safeNumber(candles[candles.length - 1]?.close).toFixed(4)}</span>
           </div>
         </GlassCard>
 
@@ -163,21 +164,21 @@ export default function TradePage() {
               <div>
                 <div className="text-xs text-muted-foreground">Portfolio Value</div>
                 <div className="text-xl font-bold tabular-nums">
-                  ${(account?.portfolioValue || 0).toFixed(2)}
+                  ${safeNumber(account?.portfolioValue).toFixed(2)}
                 </div>
               </div>
               <div>
                 <div className="text-xs text-muted-foreground">Available Cash</div>
                 <div className="text-lg tabular-nums">
-                  ${(account?.cashBalance || 0).toFixed(2)}
+                  ${safeNumber(account?.cashBalance).toFixed(2)}
                 </div>
               </div>
               <div>
                 <div className="text-xs text-muted-foreground">Unrealized P&L</div>
                 <div className={`text-lg font-semibold tabular-nums ${
-                  (account?.totalPnL || 0) >= 0 ? "text-accent" : "text-error"
+                  safeNumber(account?.totalPnL) >= 0 ? "text-accent" : "text-error"
                 }`}>
-                  {(account?.totalPnL || 0) >= 0 ? "+" : ""}${(account?.totalPnL || 0).toFixed(2)}
+                  {safeNumber(account?.totalPnL) >= 0 ? "+" : ""}${safeNumber(account?.totalPnL).toFixed(2)}
                 </div>
               </div>
             </div>
@@ -186,8 +187,8 @@ export default function TradePage() {
                 <div className="text-xs text-muted-foreground mb-2">Positions</div>
                 {account.positions.map((p, i) => (
                   <div key={i} className="flex justify-between text-sm">
-                    <span>{p.quantity.toFixed(2)} SPK</span>
-                    <span className="text-muted">@${p.averagePrice.toFixed(4)}</span>
+                    <span>{safeNumber(p.quantity).toFixed(2)} SPK</span>
+                    <span className="text-muted">@${safeNumber(p.averagePrice).toFixed(4)}</span>
                   </div>
                 ))}
               </div>
@@ -224,7 +225,7 @@ export default function TradePage() {
             />
             {amount && (
               <div className="text-xs text-muted mt-2">
-                ≈ {(parseFloat(amount) / price).toFixed(4)} SPK @ ${price.toFixed(4)}
+                ≈ {safeDivide(parseFloat(amount), price).toFixed(4)} SPK @ ${price.toFixed(4)}
               </div>
             )}
             {error && <div className="text-xs text-error mt-2">{error}</div>}
