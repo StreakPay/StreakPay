@@ -66,7 +66,7 @@ export async function checkSuspiciousActivity(userId: string): Promise<FraudChec
   const { data: profile } = await supabase
     .from("profiles")
     .select("verification_status")
-    .eq("user_id", userId)
+    .eq("id", userId)
     .single();
 
   if (profile?.verification_status === "rejected") {
@@ -96,11 +96,7 @@ export async function checkSuspiciousActivity(userId: string): Promise<FraudChec
 export async function checkDuplicateAccounts(email: string, ip?: string): Promise<boolean> {
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("profiles")
-    .select("user_id")
-    .eq("email", email)
-    .single();
+  const { data } = await supabase.auth.admin.listUsers();
 
-  return !!data;
+  return (data?.users?.filter((u) => u.email === email).length || 0) > 1;
 }

@@ -12,7 +12,7 @@ export async function reviewVerification(
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("verification_status")
-    .eq("user_id", userId)
+    .eq("id", userId)
     .single();
 
   if (profileError || !profile) throw new Error("User profile not found");
@@ -22,7 +22,7 @@ export async function reviewVerification(
   await supabase
     .from("profiles")
     .update({ verification_status: newStatus })
-    .eq("user_id", userId);
+    .eq("id", userId);
 
   await supabase
     .from("payment_proofs")
@@ -69,7 +69,7 @@ export async function suspendUser(
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("verification_status")
-    .eq("user_id", userId)
+    .eq("id", userId)
     .single();
 
   if (profileError || !profile) throw new Error("User not found");
@@ -77,7 +77,7 @@ export async function suspendUser(
   await supabase
     .from("profiles")
     .update({ verification_status: "suspended" })
-    .eq("user_id", userId);
+    .eq("id", userId);
 
   await supabase.from("notifications").insert({
     id: uuidv4(),

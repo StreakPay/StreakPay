@@ -1,14 +1,20 @@
 ﻿import { createClient } from "@/lib/supabase/server";
 
+interface AIToolCall {
+  name: string;
+  args: Record<string, unknown>;
+  result: Record<string, unknown>;
+}
+
 interface AIMessage {
   role: "user" | "assistant" | "system";
   content: string;
-  toolCalls?: any[];
+  toolCalls?: AIToolCall[];
 }
 
 interface AIResponse {
   content: string;
-  toolCalls?: { name: string; args: any; result: any }[];
+  toolCalls?: AIToolCall[];
 }
 
 interface AIContext {
@@ -141,16 +147,17 @@ export class AIService {
     ];
   }
 
-  private async executeToolCalls(toolCalls: any[], context: AIContext) {
-    const results = [];
+  private async executeToolCalls(toolCalls: { function: { name: string; arguments: string } }[], context: AIContext) {
+    const results: AIToolCall[] = [];
     for (const tool of toolCalls) {
-      const result = await this.executeTool(tool.function.name, tool.function.arguments, context);
-      results.push({ name: tool.function.name, args: tool.function.arguments, result });
+      const parsedArgs = JSON.parse(tool.function.arguments) as Record<string, unknown>;
+      const result = await this.executeTool(tool.function.name, parsedArgs, context);
+      results.push({ name: tool.function.name, args: parsedArgs, result: result as Record<string, unknown> });
     }
     return results;
   }
 
-  async executeTool(toolName: string, args: any, context: AIContext) {
+  async executeTool(toolName: string, args: Record<string, unknown>, context: AIContext) {
     const supabase = await createClient();
     const { userId } = context;
 
@@ -159,13 +166,13 @@ export class AIService {
         const { data } = await supabase
           .from("profiles")
           .select("*")
-          .eq("user_id", userId)
+          .eq("id", userId)
           .single();
         return data;
       }
       case "get_streak": {
         const { data } = await supabase
-          .from("user_streaks")
+          .from("streaks")
           .select("*")
           .eq("user_id", userId)
           .single();
@@ -173,7 +180,7 @@ export class AIService {
       }
       case "get_today_task": {
         const { data: streak } = await supabase
-          .from("user_streaks")
+          .from("streaks")
           .select("current_streak")
           .eq("user_id", userId)
           .single();
@@ -210,11 +217,11 @@ export class AIService {
     const { data: profile } = await supabase
       .from("profiles")
       .select("full_name, verification_status")
-      .eq("user_id", context.userId)
+      .eq("id", context.userId)
       .single();
 
     const { data: streak } = await supabase
-      .from("user_streaks")
+      .from("streaks")
       .select("current_streak, longest_streak")
       .eq("user_id", context.userId)
       .single();

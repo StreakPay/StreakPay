@@ -19,15 +19,16 @@ export async function GET() {
     if (!admin) return NextResponse.json({ error: "Not an admin" }, { status: 403 });
 
     const { data: users, error: usersError } = await supabase
-      .from("users")
-      .select("*, user_profiles(*), streaks(*)")
+      .from("profiles")
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(50);
 
     if (usersError) throw usersError;
 
     return NextResponse.json({ users, adminRole: admin.role });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 401 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 401 });
   }
 }

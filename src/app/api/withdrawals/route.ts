@@ -26,12 +26,13 @@ export async function POST(request: Request) {
     );
 
     return NextResponse.json({ success: true, withdrawal });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();

@@ -36,7 +36,7 @@ export async function requestWithdrawal(
 
   await supabase
     .from("wallets")
-    .update({ balance: newBalance })
+    .update({ balance: newBalance, updated_at: new Date().toISOString() })
     .eq("id", wallet.id);
 
   await supabase.from("ledger_entries").insert({
@@ -106,15 +106,17 @@ export async function approveWithdrawal(
       status: "approved",
       reviewed_by: reviewerId,
       reviewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     })
     .eq("id", withdrawalId)
     .select()
     .single();
 
+  const { data: reviewer } = await supabase.auth.admin.getUserById(reviewerId);
   await supabase.from("audit_logs").insert({
     id: uuidv4(),
     actor_id: reviewerId,
-    actor_email: "admin",
+    actor_email: reviewer?.user?.email || "admin",
     action: "ADMIN_APPROVED_WITHDRAWAL",
     target_id: withdrawalId,
     target_type: "withdrawal",
@@ -150,7 +152,7 @@ export async function rejectWithdrawal(
   if (wallet) {
     await supabase
       .from("wallets")
-      .update({ balance: Number(wallet.balance) + Number(withdrawal.amount) })
+      .update({ balance: Number(wallet.balance) + Number(withdrawal.amount), updated_at: new Date().toISOString() })
       .eq("id", wallet.id);
 
     await supabase.from("ledger_entries").insert({
@@ -172,16 +174,18 @@ export async function rejectWithdrawal(
       status: "rejected",
       reviewed_by: reviewerId,
       reviewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       metadata: { reason },
     })
     .eq("id", withdrawalId)
     .select()
     .single();
 
+  const { data: reviewer2 } = await supabase.auth.admin.getUserById(reviewerId);
   await supabase.from("audit_logs").insert({
     id: uuidv4(),
     actor_id: reviewerId,
-    actor_email: "admin",
+    actor_email: reviewer2?.user?.email || "admin",
     action: "ADMIN_REJECTED_WITHDRAWAL",
     target_id: withdrawalId,
     target_type: "withdrawal",

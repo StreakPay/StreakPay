@@ -12,9 +12,9 @@ export async function GET() {
     }
 
     const { data: profile } = await supabase
-      .from("user_profiles")
+      .from("profiles")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("id", user.id)
       .single();
 
     const { data: streak } = await supabase
@@ -67,10 +67,16 @@ export async function PATCH(request: Request) {
       );
     }
 
+    const { full_name, tiktok_username, snapchat_username } = parsed.data as Record<string, string>;
+    const updateData: Record<string, string> = {};
+    if (full_name !== undefined) updateData.full_name = full_name;
+    if (tiktok_username !== undefined) updateData.tiktok_username = tiktok_username;
+    if (snapchat_username !== undefined) updateData.snapchat_username = snapchat_username;
+
     const { data: updatedProfile, error: updateError } = await supabase
-      .from("user_profiles")
-      .update(parsed.data)
-      .eq("user_id", user.id)
+      .from("profiles")
+      .update(updateData)
+      .eq("id", user.id)
       .select("full_name, tiktok_username, snapchat_username")
       .single();
 

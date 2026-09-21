@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       .from("payment_proofs")
       .select("id")
       .eq("user_id", user.id)
-      .in("status", ["pending", "approved"])
+      .in("status", ["pending"])
       .limit(1)
       .single();
 
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
 
     let fileUrl: string;
     if (uploadError) {
-      fileUrl = `/uploads/${storagePath}`;
+      fileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/payment-proofs/${storagePath}`;
     } else {
       const { data: urlData } = supabase.storage
         .from("payment-proofs")
@@ -69,9 +69,9 @@ export async function POST(request: Request) {
     if (proofError) throw proofError;
 
     await supabase
-      .from("user_profiles")
+      .from("profiles")
       .update({ verification_status: "proof_submitted" })
-      .eq("user_id", user.id);
+      .eq("id", user.id);
 
     return NextResponse.json({ success: true, proof: { id: proof.id, status: proof.status } });
   } catch (error) {

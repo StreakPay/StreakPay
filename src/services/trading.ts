@@ -1,9 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
 import { v4 as uuidv4 } from "uuid";
 
-const BASE_PRICE = 1.0;
-const VOLATILITY = 0.02;
-const SENTIMENT = 0.001;
+interface TradingPosition {
+  id: string;
+  trading_account_id: string;
+  symbol: string;
+  quantity: number;
+  average_price: number;
+  [key: string]: unknown;
+}
+
+const BASE_PRICE = parseFloat(process.env.SPK_BASE_PRICE || "1.0");
+const VOLATILITY = parseFloat(process.env.SPK_VOLATILITY || "0.02");
+const SENTIMENT = parseFloat(process.env.SPK_SENTIMENT || "0.001");
 
 function generateCandle(
   previousClose: number,
@@ -223,7 +232,7 @@ export async function getTradingAccount(userId: string) {
 
   const currentPrice = await getCurrentPrice();
 
-  const enrichedPositions = (positions || []).map((p: any) => ({
+  const enrichedPositions = (positions as TradingPosition[] || []).map((p) => ({
     ...p,
     current_price: currentPrice,
     unrealized_pnl: (currentPrice - Number(p.average_price)) * Number(p.quantity),
@@ -232,7 +241,7 @@ export async function getTradingAccount(userId: string) {
   const portfolioValue =
     Number(account.cash_balance) +
     enrichedPositions.reduce(
-      (sum: number, p: any) => sum + Number(p.quantity) * currentPrice,
+      (sum, p) => sum + Number(p.quantity) * currentPrice,
       0
     );
 

@@ -1,5 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 
+interface WalletRow {
+  balance: number | null;
+}
+
+interface AmountRow {
+  amount: number | null;
+}
+
 export async function getAdminStats() {
   const supabase = await createClient();
 
@@ -39,16 +47,16 @@ export async function getAdminStats() {
       .eq("status", "success"),
   ]);
 
-  const totalRewardLiability = (rewardAgg || []).reduce(
-    (sum: number, r: any) => sum + Number(r.balance || 0),
+  const totalRewardLiability = (rewardAgg as WalletRow[] || []).reduce(
+    (sum, r) => sum + Number(r.balance || 0),
     0
   );
-  const withdrawalLiability = (withdrawalAgg || []).reduce(
-    (sum: number, r: any) => sum + Number(r.amount || 0),
+  const withdrawalLiability = (withdrawalAgg as AmountRow[] || []).reduce(
+    (sum, r) => sum + Number(r.amount || 0),
     0
   );
-  const totalPaymentVolume = (paymentAgg || []).reduce(
-    (sum: number, r: any) => sum + Number(r.amount || 0),
+  const totalPaymentVolume = (paymentAgg as AmountRow[] || []).reduce(
+    (sum, r) => sum + Number(r.amount || 0),
     0
   );
 
@@ -73,11 +81,11 @@ export async function getAllUsers(options?: {
 
   let query = supabase
     .from("profiles")
-    .select("*, user_streaks(*), wallets(*)")
+    .select("*")
     .order("created_at", { ascending: false });
 
   if (options?.search) {
-    query = query.or(`full_name.ilike.%${options.search}%,email.ilike.%${options.search}%`);
+    query = query.or(`full_name.ilike.%${options.search}%`);
   }
 
   if (options?.status) {
@@ -95,25 +103,51 @@ export async function getAllUsers(options?: {
 export async function getPendingVerifications() {
   const supabase = await createClient();
 
-  const { data } = await supabase
+  const { data: proofs } = await supabase
     .from("payment_proofs")
-    .select("*, profiles(user_id, full_name, email)")
+    .select("*")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 
-  return data || [];
+  if (!proofs || proofs.length === 0) return [];
+
+  const userIds = [...new Set(proofs.map((p) => p.user_id))];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", userIds);
+
+  const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
+
+  return proofs.map((proof) => ({
+    ...proof,
+    user: { id: proof.user_id, email: "", profile: profileMap.get(proof.user_id) || null },
+  }));
 }
 
 export async function getPendingWithdrawals() {
   const supabase = await createClient();
 
-  const { data } = await supabase
+  const { data: withdrawals } = await supabase
     .from("withdrawal_requests")
-    .select("*, profiles(user_id, full_name, email)")
+    .select("*")
     .in("status", ["requested", "under_review"])
     .order("created_at", { ascending: true });
 
-  return data || [];
+  if (!withdrawals || withdrawals.length === 0) return [];
+
+  const userIds = [...new Set(withdrawals.map((w) => w.user_id))];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", userIds);
+
+  const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
+
+  return withdrawals.map((w) => ({
+    ...w,
+    user: { id: w.user_id, email: "", profile: profileMap.get(w.user_id) || null },
+  }));
 }
 
 export async function getAuditLogs(options?: { limit?: number; offset?: number }) {
