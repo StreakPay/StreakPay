@@ -78,7 +78,7 @@ export default function RewardsPage() {
             <span className="text-xs text-muted uppercase tracking-widest font-medium">Reward Wallet</span>
           </div>
           <div className="text-4xl font-bold text-gold tabular-nums mb-1 tracking-tight">
-            \u20A6{formatNaira(wallet?.balance)}
+            ₦{formatNaira(wallet?.balance)}
           </div>
           <p className="text-sm text-muted-foreground mt-1">{claimedCount} milestones claimed</p>
         </div>
@@ -106,7 +106,7 @@ export default function RewardsPage() {
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold text-gold tabular-nums">
-                      \u20A6{formatNaira(m.rewardAmount)}
+                      ₦{formatNaira(m.rewardAmount)}
                     </div>
                     {m.claimed ? (
                       <Badge variant="accent">

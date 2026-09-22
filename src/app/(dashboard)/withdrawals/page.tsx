@@ -95,8 +95,8 @@ export default function WithdrawalsPage() {
       {/* Balance */}
       <GlassCard variant="elevated" className="p-6 mb-8">
         <div className="text-xs text-muted uppercase tracking-widest font-medium mb-2">Available Balance</div>
-        <div className="text-3xl font-bold text-gold tabular-nums tracking-tight">\u20A6{balance.toLocaleString()}</div>
-        <p className="text-xs text-muted mt-1">Minimum withdrawal: \u20A6500</p>
+        <div className="text-3xl font-bold text-gold tabular-nums tracking-tight">₦{balance.toLocaleString()}</div>
+        <p className="text-xs text-muted mt-1">Minimum withdrawal: ₦500</p>
       </GlassCard>
 
       {showForm && (
@@ -110,7 +110,7 @@ export default function WithdrawalsPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <GlassInput
               id="amount"
-              label="Amount (\u20A6)"
+              label="Amount (₦)"
               type="number"
               min="500"
               required
@@ -163,7 +163,7 @@ export default function WithdrawalsPage() {
             <GlassCard key={w.id} className="p-5">
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <div className="font-semibold tabular-nums">\u20A6{Number(w.amount).toLocaleString()}</div>
+                  <div className="font-semibold tabular-nums">₦{Number(w.amount).toLocaleString()}</div>
                   <div className="text-xs text-muted mt-0.5">{w.bankName} \u2022\u2022\u2022\u2022{w.accountNumber.slice(-4)}</div>
                 </div>
                 <Badge variant={(STATUS_COLORS[w.status] as "warning" | "gold" | "cyan" | "accent" | "error") || "muted"}>

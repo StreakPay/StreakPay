@@ -239,7 +239,7 @@ User Data:
 - Verification: ${profile?.verification_status || "unverified"}
 - Current Streak: ${streak?.current_streak || 0} days
 - Longest Streak: ${streak?.longest_streak || 0} days
-- Reward Balance: \u20A6${wallet?.balance || 0}
+- Reward Balance: ₦${wallet?.balance || 0}
       `.trim();
 
     return `You are STREAK AI, a helpful assistant for the StreakPay platform.
@@ -282,7 +282,7 @@ ${userData}`;
     }
     if (lastMessage.includes("withdraw")) {
       return {
-        content: "To withdraw your rewards, go to the Withdrawals page. You need a verified account and minimum \u20A6500 balance. Would you like me to guide you there?",
+        content: "To withdraw your rewards, go to the Withdrawals page. You need a verified account and minimum ₦500 balance. Would you like me to guide you there?",
       };
     }
     return {

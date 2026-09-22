@@ -142,7 +142,7 @@ export default function VerifyPage() {
         <>
           <GlassCard className="p-6 mb-5">
             <h2 className="text-sm font-semibold mb-4">Verification Fee</h2>
-            <div className="text-3xl font-bold text-gold mb-2 tracking-tight">\u20A62,000</div>
+            <div className="text-3xl font-bold text-gold mb-2 tracking-tight">₦2,000</div>
             <p className="text-sm text-muted-foreground">
               One-time verification fee to activate your account.
             </p>
@@ -155,7 +155,7 @@ export default function VerifyPage() {
                 <span className="text-accent font-bold">1.</span>
                 <div>
                   <p className="font-medium">Bank Transfer</p>
-                  <p className="text-muted-foreground">Transfer \u20A62,000 to the account below</p>
+                  <p className="text-muted-foreground">Transfer ₦2,000 to the account below</p>
                 </div>
               </div>
               <div className="glass rounded-xl p-4">
@@ -174,7 +174,7 @@ export default function VerifyPage() {
                   </div>
                   <div>
                     <div className="text-[10px] text-muted uppercase tracking-widest">Amount</div>
-                    <div className="font-bold text-gold text-sm">\u20A62,000</div>
+                    <div className="font-bold text-gold text-sm">₦2,000</div>
                   </div>
                 </div>
               </div>

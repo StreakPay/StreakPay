@@ -177,6 +177,15 @@ function scoreResponse(content: ActivityContent, response: string): boolean {
     case "reflection": {
       const accepted = (content.accepted_answers as string[]) || [];
       const scoring = (content.scoring as string) || "contains_any";
+
+      // Freeform responses (e.g. reflection with no accepted answers):
+      // require a minimum number of words rather than an exact match.
+      if (accepted.length === 0) {
+        const minWords = (content.min_words as number) || 5;
+        const wordCount = response.trim().split(/\s+/).filter(Boolean).length;
+        return wordCount >= minWords;
+      }
+
       if (scoring === "contains_any") {
         return accepted.some((a) => normalizedResponse.includes(a.toLowerCase()));
       }
@@ -186,7 +195,9 @@ function scoreResponse(content: ActivityContent, response: string): boolean {
     case "quiz":
     case "trivia":
     case "science_question":
-    case "engineering_question": {
+    case "engineering_question":
+    case "science":
+    case "engineering": {
       return normalizedResponse === ((content.correct_answer as string) || "").toLowerCase();
     }
 
@@ -198,12 +209,19 @@ function scoreResponse(content: ActivityContent, response: string): boolean {
     case "logic_puzzle":
     case "word_puzzle":
     case "memory_challenge":
-    case "pattern_recognition": {
+    case "pattern_recognition":
+    case "logic":
+    case "pattern":
+    case "memory": {
       const accepted = (content.accepted_answers as string[]) || [];
-      return accepted.some((a) => normalizedResponse === a.toLowerCase());
+      const correct = (content.correct_answer as string) || "";
+      return [...accepted, correct].some(
+        (a) => a && normalizedResponse === a.toLowerCase()
+      );
     }
 
-    case "daily_poll": {
+    case "daily_poll":
+    case "poll": {
       // Polls are always "correct" — any choice counts as completion
       return true;
     }

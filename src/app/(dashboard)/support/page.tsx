@@ -55,7 +55,7 @@ export default function SupportPage() {
           {[
             { q: "How do I reset my password?", a: "Go to Settings > Security > Change Password" },
             { q: "How long does verification take?", a: "Usually within 24 hours of proof submission" },
-            { q: "What is the minimum withdrawal?", a: "\u20A6500 for NGN withdrawals" },
+            { q: "What is the minimum withdrawal?", a: "₦500 for NGN withdrawals" },
           ].map((faq, i) => (
             <div key={i} className="glass rounded-xl p-4">
               <div className="text-sm font-medium">{faq.q}</div>

@@ -115,7 +115,10 @@ export default function StreakPage() {
 
   const handleSubmit = async () => {
     if (!data?.activity) return;
-    const answer = data.activity.content.type === "daily_poll" ? selectedOption : userResponse;
+    const content = data.activity.content;
+    const hasOptions =
+      Array.isArray(content.options) && content.options.length > 0;
+    const answer = hasOptions ? selectedOption : userResponse;
     if (!answer.trim()) return;
 
     setPhase("submitting");
@@ -159,6 +162,7 @@ export default function StreakPage() {
 
     switch (content.type) {
       case "short_story":
+      case "story":
         return (
           <div className="space-y-4">
             <div className="glass rounded-2xl p-5 text-sm leading-relaxed whitespace-pre-line">
@@ -180,12 +184,19 @@ export default function StreakPage() {
       case "quiz":
       case "trivia":
       case "science_question":
-      case "engineering_question": {
+      case "engineering_question":
+      case "science":
+      case "engineering":
+      case "pattern_recognition":
+      case "pattern":
+      case "memory_challenge":
+      case "memory": {
         const options = (content.options as string[]) || [];
+        const questionText = (content.question as string) || (content.problem as string) || "";
         return (
           <div className="space-y-4">
             <div className="glass rounded-2xl p-5">
-              <p className="font-medium mb-4">{content.question as string}</p>
+              <p className="font-medium mb-4">{questionText}</p>
               <div className="space-y-2">
                 {options.map((opt, i) => (
                   <button
@@ -227,10 +238,9 @@ export default function StreakPage() {
 
       case "math":
       case "logic_puzzle":
-      case "word_puzzle":
-      case "memory_challenge":
-      case "pattern_recognition": {
-        const problem = (content.problem as string) || (content.riddle as string) || (content.question as string) || "";
+      case "logic":
+      case "word_puzzle": {
+        const problem = (content.problem as string) || (content.riddle as string) || (content.question as string) || (content.scrambled as string) || "";
         return (
           <div className="space-y-4">
             <div className="glass rounded-2xl p-5">
@@ -268,7 +278,8 @@ export default function StreakPage() {
           </div>
         );
 
-      case "daily_poll": {
+      case "daily_poll":
+      case "poll": {
         const options = (content.options as string[]) || [];
         return (
           <div className="space-y-4">
@@ -323,7 +334,9 @@ export default function StreakPage() {
   };
 
   const canSubmit =
-    (activity?.content.type === "daily_poll" ? selectedOption.trim() : userResponse.trim()).length > 0;
+    (activity?.content && Array.isArray(activity.content.options) && activity.content.options.length > 0
+      ? selectedOption.trim()
+      : userResponse.trim()).length > 0;
 
   return (
     <div className="p-5 md:p-8 lg:p-10 max-w-[700px] mx-auto">
@@ -439,7 +452,7 @@ export default function StreakPage() {
                       <span className="text-sm">{m.requiredStreak}🔥</span>
                       <span className="text-xs text-muted font-medium">{m.requiredStreak}-day streak</span>
                     </div>
-                    <div className="text-sm font-semibold tabular-nums">\u20A6{formatNaira(m.rewardAmount)}</div>
+                    <div className="text-sm font-semibold tabular-nums">₦{formatNaira(m.rewardAmount)}</div>
                   </div>
                   <div className="h-1 bg-white/[0.04] rounded-full overflow-hidden">
                     <div
